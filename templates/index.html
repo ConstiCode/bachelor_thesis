@@ -1,17 +1,105 @@
 <html lang="en">
-    <head>
-        <title>Home</title>
-        <script src="{{ url_for('static', filename='scripts/frontendScript.js') }}" defer></script>
-        <style>
-            canvas {
-                width: 100%;
-                height: 100%;
-                margin: auto;
-            }
-        </style>
-    </head>
-    <body>
-        <h1>Test</h1>
-        <canvas id="warehouseCanvas" width="200" height="100" style="border:1px solid #000000;"> </canvas>
-    </body>
+<head>
+    <title>Home</title>
+    <script src="{{ url_for('static', filename='scripts/frontendScript.js') }}" defer></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #inputSection {
+            width: 30%;
+            background-color: slategray;
+        }
+
+        canvas {
+            height: 100%;
+            width: 70%;
+        }
+
+        #generalContainer {
+            display: flex;
+            height: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 2.5rem; /* Adjust as needed */
+            font-weight: 500; /* Light to medium weight */
+            line-height: 1.2;
+            letter-spacing: -0.01em; /* Subtle letter spacing adjustment */
+            color: #2c2c2e; /* Dark gray color */
+            margin-bottom: 0.5rem; /* Spacing below the heading */
+        }
+
+        #inputFields {
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* Spacing between elements */
+            width: 250px; /* Limit width */
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        #inputFields label {
+            font-weight: bold;
+            font-size: 14px;
+            color: #333;
+        }
+
+        #inputFields input {
+            padding: 8px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        #inputFields input:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+
+    </style>
+</head>
+<body>
+<div id="generalContainer">
+    <!-- left side -->
+
+    <canvas id="warehouseCanvas" width="200" height="100" style="border:1px solid #000000;"></canvas>
+
+
+    <!-- right side -->
+    <div id="inputSection">
+        <h1>Travelling Salesman Problem in Manhattan Networks</h1>
+        <div id="inputFields">
+            <label for="warehouseAisleCount">Number of Aisles:</label>
+            <input type="number" id="warehouseAisleCount" placeholder="Number of Aisles" value="10"/>
+            <label for="warehouseCrossingCount">Number of Crossings:</label>
+            <input type="number" id="warehouseCrossingCount" placeholder="Number of Crossings" value="5"/>
+            <button id="changeWarehouseFloorPlan">Change Warehouse Floorplan</button>
+        </div>
+        <div id="algorithmSelection">
+            <div>
+                <label>
+                    <input type="checkbox" id="greedyHeuristic" name="selections" value="greedy">
+                    Greedy Heuristic
+                </label>
+                <label>
+                    <input type="checkbox" id="NearestNeighborHeuristic" name="selections" value="nearestNeighbor">
+                    Nearest Neighbor Heuristic
+                </label>
+                <label>
+                    <input type="checkbox" id="fixedParameterAlgorithm" name="selections" value="fixedParameter">
+                    Fixed Parameter Algorithm
+                </label>
+            </div>
+            <button id="runAlgorithm">Run Algorithm</button>
+        </div>
+    </div>
+</div>
+</body>
 </html>
