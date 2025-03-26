@@ -10,10 +10,14 @@ c.height = rect.height * dpr; // Set actual height
 
 ctx.scale(dpr, dpr); // Scale the context
 
+// Set the canvas background color
+ctx.fillStyle = "#1e1e1e";
+ctx.fillRect(0, 0, c.width, c.height);
+
 // Adjust coordinates for sharp lines
 
 // Create a Grid for the Warehouse
-let gridSize = Math.floor(c.height / 21);
+//let gridSize = Math.floor(c.height / 21);
 
 /*
 let numGridsHeight = Math.floor(c.height / gridSize);
@@ -27,10 +31,10 @@ for (let i = 0; i < c.width; i += gridSize) {
     ctx.stroke();
 
 }*/
-drawPackingTable(gridSize, c.height, c.width);
+//drawPackingTable(gridSize, c.height, c.width);
 //drawStorageShelfRow(gridSize, c.height - gridSize * 7, gridSize, gridSize * 6, 5);
 //drawStorageShelfRow(gridSize, c.height - gridSize * 14, gridSize, gridSize * 6, 5);
-drawStorageShelfFloorPlan(7, 2, gridSize, c.height, c.width);
+
 
 // Create the Packing Table (Rectangle)
 function drawPackingTable(gridSize, screenHeight, screenWidth) {
@@ -53,26 +57,48 @@ function drawPackingTable(gridSize, screenHeight, screenWidth) {
     ctx.fillText("Packing Table", textX, textY);
 }
 
-function drawStorageShelf(positionX, positionY, gridSize, shelfHeight) {
-    ctx.rect(positionX, positionY, 2 * gridSize, shelfHeight); // x, y, width, height
+function drawStorageShelf(positionX, positionY, horizontalGridSize, shelfHeight) {
+    ctx.beginPath();
+    ctx.rect(positionX, positionY, 2 * horizontalGridSize, shelfHeight); // x, y, width, height
     ctx.fillStyle = "lightblue";
     ctx.fill(); // Draw the outline
 
 }
 
-function drawStorageShelfRow(startPositionX, startPositionY, gridSize, shelfHeight, numberOfShelfs) {
-    let startPosition = 0;
-    for (let i = 0; i < numberOfShelfs; i++) {
-        drawStorageShelf(startPosition, startPositionY, gridSize, gridSize * 6);
-        startPosition = startPosition + 5 * gridSize;
+function drawStorageShelfRow(startPositionY, horizontalGridSize, shelfHeight, numAisles, screenWidth) {
+    let offset = (numAisles * 4 * horizontalGridSize) / 2;
+    let startPosition = (screenWidth / 2) - offset;
+
+    for (let i = 0; i < numAisles; i++) {
+        drawStorageShelf(startPosition, startPositionY, horizontalGridSize, shelfHeight);
+        startPosition = startPosition + 5 * horizontalGridSize;
     }
 }
 
-function drawStorageShelfFloorPlan(numAisles, numCrossing, gridSize, screenHeight, screenWidth) {
+function drawStorageShelfFloorPlan(numAisles, numCrossing, screenHeight, screenWidth) {
     let marginTop = 3;
-    let startPositionY = c.height - gridSize * 7;
+    let marginBottom = 2;
+
+    // the grid sizes are dynamically calculated based on the number of aisles and the screen height
+    let verticalGridSizeAmount = Math.floor(screenHeight / ((numCrossing * 7) + marginBottom + marginTop));
+    let horizontalGridSizeAmount = Math.floor(screenWidth / (numAisles * 4));
+
+    //let shelfHeight = Math.floor(screenHeight / ((numCrossing * 7) + marginTop + marginBottom));
+    //let aisleSpacing = Math.floor(screenWidth / (numAisles * 6)); // Ensure spacing shrinks as aisles increase
+    //let shelfWidth = aisleSpacing * 2;
+
+    let verticalGridSize = Math.floor(screenHeight / verticalGridSizeAmount);
+    let horizontalGridSize = Math.floor(screenWidth / horizontalGridSizeAmount);
+
+    let offset = (numCrossing * 7 * verticalGridSize) / 2;
+    let startPositionY = (screenHeight / 2) + offset;
+
     for (let i = 0; i < numCrossing; i++) {
-        drawStorageShelfRow(gridSize, startPositionY, gridSize, gridSize * 6, numAisles);
-        startPositionY -= gridSize * 7;
+        drawStorageShelfRow(startPositionY, horizontalGridSize, verticalGridSize * 6, numAisles, screenWidth);
+        startPositionY -= verticalGridSize * 7;
     }
 }
+
+drawStorageShelfFloorPlan(4, 3, c.height, c.width);
+
+
