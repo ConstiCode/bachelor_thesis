@@ -11,22 +11,28 @@ c.height = rect.height * dpr; // Set actual height
 ctx.scale(dpr, dpr); // Scale the context
 
 // Create the Packing Table (Rectangle)
-function drawPackingTable(numAisles, horizontalGridSize, verticalGridSize, screenHeight, screenWidth) {
-    let positionX = (screenWidth / 2) - ((numAisles * 4 * horizontalGridSize) / 2);
+function drawPackingTable(numAisles, numCrossing, horizontalGridSize, verticalGridSize, screenHeight, screenWidth) {
 
-    ctx.rect(positionX, verticalGridSize, horizontalGridSize * 3, verticalGridSize); // x, y, width, height
+    // calculate the position of the packing table relative to the number of and crossings (Y)
+    let offset = (numCrossing * 7 * verticalGridSize) / 2;
+    let startPositionY = (screenHeight / 2) + offset;
+    let positionY = startPositionY - numCrossing * (verticalGridSize * 7);
+
+    let positionX = (screenWidth / 2) - 2 * horizontalGridSize;
+    ctx.rect(positionX, positionY, horizontalGridSize * 3, verticalGridSize); // x, y, width, height
     ctx.fillStyle = "lightblue";
     ctx.fill(); // Draw the outline
 
 // Set text styles
-    ctx.font = "15px Arial";
+    let fontSize = Math.floor(45 / numAisles);
+    ctx.font = `${fontSize}px Arial`;
     ctx.fillStyle = "black";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
 // Calculate text position (center of the rectangle)
     let textX = positionX + (horizontalGridSize * 3) / 2;
-    let textY = verticalGridSize + verticalGridSize / 2;
+    let textY = positionY + verticalGridSize / 2;
 
     ctx.fillText("Packing Table", textX, textY);
 }
@@ -50,7 +56,7 @@ function drawStorageShelfRow(startPositionY, horizontalGridSize, shelfHeight, nu
 }
 
 function drawStorageShelfFloorPlan(numAisles, numCrossing, screenHeight, screenWidth) {
-    // Set the canvas background color
+    // set the canvas background color
     ctx.fillStyle = "#1e1e1e";
     ctx.fillRect(0, 0, c.width, c.height);
 
@@ -73,8 +79,8 @@ function drawStorageShelfFloorPlan(numAisles, numCrossing, screenHeight, screenW
         startPositionY -= verticalGridSize * 7;
     }
 
-    // Todo get the packing table to the right position
-    drawPackingTable(numAisles, horizontalGridSize, verticalGridSize, screenHeight, screenWidth)
+    // draw the packing table that is the start and end point of the route
+    drawPackingTable(numAisles, numCrossing, horizontalGridSize, verticalGridSize, screenHeight, screenWidth)
 }
 
 drawStorageShelfFloorPlan(4, 3, c.height, c.width);
