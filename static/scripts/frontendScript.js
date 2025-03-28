@@ -1,89 +1,105 @@
-let c = document.getElementById("warehouseCanvas");
-let ctx = c.getContext("2d");
+class WarehouseFloorPlan {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext("2d");
+        this.dpr = window.devicePixelRatio || 1;
+        this.setupCanvas();
+    }
 
-// Adjust for high DPI screens
-let dpr = window.devicePixelRatio || 1; // Get device pixel ratio
-let rect = c.getBoundingClientRect(); // Get canvas's display size
+    setupCanvas() {
+        let rect = this.canvas.getBoundingClientRect();
+        this.canvas.width = rect.width * this.dpr;
+        this.canvas.height = rect.height * this.dpr;
+        this.ctx.scale(this.dpr, this.dpr);
+    }
 
-c.width = rect.width * dpr; // Set actual width
-c.height = rect.height * dpr; // Set actual height
+    clearCanvas() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = "#1e1e1e";
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
 
-ctx.scale(dpr, dpr); // Scale the context
+    drawPackingTable() {
+        // calculate the position of the packing table relative to the number of and crossings (Y)
+        let offset = (this.numCrossing * 7 * this.verticalGridSize) / 2;
+        let startPositionY = (this.canvas.height / 2) + offset;
+        let positionY = startPositionY - this.numCrossing * (this.verticalGridSize * 7);
 
-// Create the Packing Table (Rectangle)
-function drawPackingTable(numAisles, numCrossing, horizontalGridSize, verticalGridSize, screenHeight, screenWidth) {
+        let positionX = (this.canvas.width / 2) - 2 * this.horizontalGridSize;
+        this.ctx.rect(positionX, positionY, this.horizontalGridSize * 3, this.horizontalGridSize); // x, y, width, height
+        this.ctx.fillStyle = "lightblue";
+        this.ctx.fill(); // Draw the outline
 
-    // calculate the position of the packing table relative to the number of and crossings (Y)
-    let offset = (numCrossing * 7 * verticalGridSize) / 2;
-    let startPositionY = (screenHeight / 2) + offset;
-    let positionY = startPositionY - numCrossing * (verticalGridSize * 7);
+        // Set text styles
+        let fontSize = Math.floor(45 / this.numAisles);
+        this.ctx.font = `${fontSize}px Arial`;
+        this.ctx.fillStyle = "black";
+        this.ctx.textAlign = "center";
+        this.ctx.textBaseline = "middle";
 
-    let positionX = (screenWidth / 2) - 2 * horizontalGridSize;
-    ctx.rect(positionX, positionY, horizontalGridSize * 3, verticalGridSize); // x, y, width, height
-    ctx.fillStyle = "lightblue";
-    ctx.fill(); // Draw the outline
+        // Calculate text position (center of the rectangle)
+        let textX = positionX + (this.horizontalGridSize * 3) / 2;
+        let textY = positionY + this.verticalGridSize / 2;
 
-// Set text styles
-    let fontSize = Math.floor(45 / numAisles);
-    ctx.font = `${fontSize}px Arial`;
-    ctx.fillStyle = "black";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+        this.ctx.fillText("Packing Table", textX, textY);
+    }
 
-// Calculate text position (center of the rectangle)
-    let textX = positionX + (horizontalGridSize * 3) / 2;
-    let textY = positionY + verticalGridSize / 2;
+    drawPickingMarker(positionX, positionY, horizontalGridSize, verticalGridSize) {
+        // draws a small red dot to indicate the picking location
+        this.ctx.beginPath();
+        this.ctx.arc(positionX, positionY, Math.max(horizontalGridSize, verticalGridSize) / 5, 0, 2 * Math.PI);
+        this.ctx.stroke();
+        this.ctx.fillStyle = "red";
+        this.ctx.fill();
+    }
 
-    ctx.fillText("Packing Table", textX, textY);
-}
+    drawStorageShelf(positionX, positionY) {
+        this.ctx.beginPath();
+        this.ctx.rect(positionX, positionY, 2 * this.horizontalGridSize, this.shelfHeight * this.verticalGridSize); // x, y, width, height
+        this.ctx.fillStyle = "lightblue";
+        this.ctx.fill();
+    }
 
-function drawStorageShelf(positionX, positionY, horizontalGridSize, shelfHeight) {
-    ctx.beginPath();
-    ctx.rect(positionX, positionY, 2 * horizontalGridSize, shelfHeight); // x, y, width, height
-    ctx.fillStyle = "lightblue";
-    ctx.fill();
+    drawStorageShelfRow() {
+        let offset = (this.numAisles * 4 * this.horizontalGridSize) / 2;
+        let startPosition = (this.canvas.width / 2) - offset;
 
-}
+        for (let i = 0; i < this.numAisles; i++) {
+            this.drawStorageShelf(startPosition, this.startPositionY, this.horizontalGridSize);
+            startPosition = startPosition + 4 * this.horizontalGridSize;
+        }
+    }
 
-function drawStorageShelfRow(startPositionY, horizontalGridSize, shelfHeight, numAisles, screenWidth) {
-    let offset = (numAisles * 4 * horizontalGridSize) / 2;
-    let startPosition = (screenWidth / 2) - offset;
+    drawStorageShelfFloorPlan(numAisles, numCrossings) {
+        this.clearCanvas();
+        this.numAisles = numAisles;
+        this.numCrossing = numCrossings;
 
-    for (let i = 0; i < numAisles; i++) {
-        drawStorageShelf(startPosition, startPositionY, horizontalGridSize, shelfHeight);
-        startPosition = startPosition + 4 * horizontalGridSize;
+        this.marginVertical = 20;
+        this.marginHorizontal = 20;
+
+        this.shelfHeight = 6;
+
+        // the grid sizes are dynamically calculated based on the number of aisles and the screen height
+        this.verticalGridSize = Math.floor(this.canvas.height / ((numCrossings * 7) + this.marginVertical));
+        this.horizontalGridSize = Math.floor(this.canvas.width / (numAisles * 4 + this.marginHorizontal));
+
+        this.offset = (numCrossings * 7 * this.verticalGridSize) / 2;
+        this.startPositionY = (this.canvas.height / 2) + this.offset;
+
+        for (let i = 0; i < numCrossings; i++) {
+            this.drawStorageShelfRow(this.startPositionY, this.horizontalGridSize, numAisles);
+            this.startPositionY -= this.verticalGridSize * 7;
+        }
+
+        // draw the packing table that is the start and end point of the route
+        this.drawPackingTable();
+        this.drawPickingMarker();
     }
 }
 
-function drawStorageShelfFloorPlan(numAisles, numCrossing, screenHeight, screenWidth) {
-    // set the canvas background color
-    ctx.fillStyle = "#1e1e1e";
-    ctx.fillRect(0, 0, c.width, c.height);
-
-    let marginVertical = 20;
-    let marginHorizontal = 20;
-
-    // the grid sizes are dynamically calculated based on the number of aisles and the screen height
-    let verticalGridSizeAmount = Math.floor(screenHeight / ((numCrossing * 7) + marginVertical));
-    let horizontalGridSizeAmount = Math.floor(screenWidth / (numAisles * 4 + marginHorizontal));
-
-
-    let verticalGridSize = verticalGridSizeAmount // Math.floor(screenHeight / verticalGridSizeAmount);
-    let horizontalGridSize = horizontalGridSizeAmount // Math.floor(screenWidth / horizontalGridSizeAmount);
-
-    let offset = (numCrossing * 7 * verticalGridSize) / 2;
-    let startPositionY = (screenHeight / 2) + offset;
-
-    for (let i = 0; i < numCrossing; i++) {
-        drawStorageShelfRow(startPositionY, horizontalGridSize, verticalGridSize * 6, numAisles, screenWidth);
-        startPositionY -= verticalGridSize * 7;
-    }
-
-    // draw the packing table that is the start and end point of the route
-    drawPackingTable(numAisles, numCrossing, horizontalGridSize, verticalGridSize, screenHeight, screenWidth)
-}
-
-drawStorageShelfFloorPlan(4, 3, c.height, c.width);
+const wareHouseFloorPlan = new WarehouseFloorPlan("warehouseCanvas");
+wareHouseFloorPlan.drawStorageShelfFloorPlan(4, 3, wareHouseFloorPlan.canvas.height, wareHouseFloorPlan.canvas.width);
 
 document.getElementById("changeWarehouseFloorPlan").addEventListener("click", function () {
     let aisles = document.getElementById("warehouseAisleCount").value;
@@ -93,7 +109,27 @@ document.getElementById("changeWarehouseFloorPlan").addEventListener("click", fu
         alert("Please enter a valid number for aisles and crossings");
         return;
     }
-
-    ctx.clearRect(0, 0, c.width, c.height);
-    drawStorageShelfFloorPlan(aisles, crossings, c.height, c.width);
+    wareHouseFloorPlan.drawStorageShelfFloorPlan(aisles, crossings);
 });
+/*
+document.getElementById("generateLocationTestSet").addEventListener("click", function() {
+    let productCount = document.getElementById("generateLocationTestSet").value;
+
+    fetch('/generate-test-locations', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ product_count: productCount,
+                               warehouse_aisles: document.getElementById("warehouseAisleCount").value,
+                               warehouse_crossings: document.getElementById("warehouseCrossingCount").value,
+                               warehouse_width: })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert(data.message);
+    })
+    .catch(error => console.error('Error:', error));
+});
+
+*/
