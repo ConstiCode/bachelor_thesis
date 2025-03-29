@@ -21,9 +21,9 @@ class WarehouseFloorPlan {
 
     drawPackingTable() {
         // calculate the position of the packing table relative to the number of and crossings (Y)
-        let offset = (this.numCrossing * 7 * this.verticalGridSize) / 2;
+        let offset = (this.numCrossings * 7 * this.verticalGridSize) / 2;
         let startPositionY = (this.canvas.height / 2) + offset;
-        let positionY = startPositionY - this.numCrossing * (this.verticalGridSize * 7);
+        let positionY = startPositionY - this.numCrossings * (this.verticalGridSize * 7);
 
         let positionX = (this.canvas.width / 2) - 2 * this.horizontalGridSize;
         this.ctx.rect(positionX, positionY, this.horizontalGridSize * 3, this.horizontalGridSize); // x, y, width, height
@@ -54,6 +54,8 @@ class WarehouseFloorPlan {
     drawStorageShelfRow() {
         let offset = (this.numAisles * 4 * this.horizontalGridSize) / 2;
         let startPosition = (this.canvas.width / 2) - offset;
+
+        this.normalizedCoordinate.x = startPosition;
 
         for (let i = 0; i < this.numAisles; i++) {
             this.drawStorageShelf(startPosition, this.startPositionY, this.horizontalGridSize);
@@ -89,7 +91,7 @@ class WarehouseFloorPlan {
     drawStorageShelfFloorPlan(numAisles, numCrossings) {
         this.clearCanvas();
         this.numAisles = numAisles;
-        this.numCrossing = numCrossings;
+        this.numCrossings = numCrossings;
 
         this.marginVertical = 20;
         this.marginHorizontal = 20;
@@ -102,6 +104,12 @@ class WarehouseFloorPlan {
 
         this.offset = (numCrossings * 7 * this.verticalGridSize) / 2;
         this.startPositionY = (this.canvas.height / 2) + this.offset;
+
+        // normalizedCoordinate is a field used to calculate the position of the storage shelf's in the backend
+        this.normalizedCoordinate = {
+            x: null,
+            y: this.startPositionY - ((this.numCrossings - 1) * 7 * this.verticalGridSize)
+        };
 
         for (let i = 0; i < numCrossings; i++) {
             this.drawStorageShelfRow();
@@ -118,8 +126,8 @@ const wareHouseFloorPlan = new WarehouseFloorPlan("warehouseCanvas");
 const changeWarehouseFloorPlanButton = document.getElementById("changeWarehouseFloorPlan");
 const generateLocationTestSetButton = document.getElementById("generateLocationsButton");
 
-wareHouseFloorPlan.drawStorageShelfFloorPlan(4, 3, wareHouseFloorPlan.canvas.height, wareHouseFloorPlan.canvas.width);
-wareHouseFloorPlan.drawPickingMarker(20, (wareHouseFloorPlan.canvas.height / 2) + wareHouseFloorPlan.offset);
+wareHouseFloorPlan.drawStorageShelfFloorPlan(3, 2, wareHouseFloorPlan.canvas.height, wareHouseFloorPlan.canvas.width);
+wareHouseFloorPlan.drawPickingMarker(wareHouseFloorPlan.normalizedCoordinate.x, wareHouseFloorPlan.normalizedCoordinate.y);
 wareHouseFloorPlan.drawWarehouseRoute([{x: 0, y: 30.5}, {x: 50, y: 30.5}]);
 
 changeWarehouseFloorPlanButton.addEventListener("click", function () {
