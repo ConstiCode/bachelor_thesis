@@ -1,9 +1,12 @@
 class WarehouseFloorPlan {
-    constructor(canvasId) {
+    constructor(canvasId, debug = false) {
         this.canvas = document.getElementById(canvasId);
         this.ctx = this.canvas.getContext("2d");
         this.dpr = window.devicePixelRatio || 1;
         this.setupCanvas();
+        if (debug) {
+            this.debug = true;
+        }
     }
 
     setupCanvas() {
@@ -17,6 +20,10 @@ class WarehouseFloorPlan {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = "#1e1e1e";
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        if (this.debug) {
+            this.drawDebuggingGrid();
+        }
     }
 
     drawPackingTable() {
@@ -63,13 +70,20 @@ class WarehouseFloorPlan {
         }
     }
 
-    drawPickingMarker(positionX, positionY) {
-        // draws a small red dot to indicate the picking location
-        this.ctx.beginPath();
-        this.ctx.arc(positionX, positionY, Math.max(this.horizontalGridSize, this.verticalGridSize) / 12, 0, 2 * Math.PI);
-        this.ctx.stroke();
-        this.ctx.fillStyle = "red";
-        this.ctx.fill();
+    drawPickingMarkers(positions) {
+        // draws a small red dots for a given array of stock locations
+        for (let i = 0; i < positions.length; i++) {
+            let offsetX = this.normalizedCoordinate.x;
+            let offsetY = this.normalizedCoordinate.y;
+            let x = (positions[i].x * this.horizontalGridSize + 0.5 * this.horizontalGridSize) + offsetX;
+            let y = (positions[i].y * this.verticalGridSize + 0.5 * this.verticalGridSize) + offsetY;
+
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, Math.max(this.horizontalGridSize, this.verticalGridSize) / 12, 0, 2 * Math.PI);
+            this.ctx.stroke();
+            this.ctx.fillStyle = "red";
+            this.ctx.fill();
+        }
     }
 
     drawWarehouseRoute(route) {
@@ -93,17 +107,17 @@ class WarehouseFloorPlan {
         this.numAisles = numAisles;
         this.numCrossings = numCrossings;
 
-        this.marginVertical = 20;
-        this.marginHorizontal = 20;
+        let marginVertical = 20;
+        let marginHorizontal = 20;
 
         this.shelfHeight = 6;
 
         // the grid sizes are dynamically calculated based on the number of aisles and the screen height
-        this.verticalGridSize = this.canvas.height / ((numCrossings * 7) + this.marginVertical);
-        this.horizontalGridSize = this.canvas.width / (numAisles * 4 + this.marginHorizontal);
+        this.verticalGridSize = this.canvas.height / ((numCrossings * 7) + marginVertical);
+        this.horizontalGridSize = this.canvas.width / (numAisles * 4 + marginHorizontal);
 
-        this.offset = (numCrossings * 7 * this.verticalGridSize) / 2;
-        this.startPositionY = (this.canvas.height / 2) + this.offset;
+        let offset = (numCrossings * 7 * this.verticalGridSize) / 2;
+        this.startPositionY = (this.canvas.height / 2) + offset;
 
         // normalizedCoordinate is a field used to calculate the position of the storage shelf's in the backend
         this.normalizedCoordinate = {
@@ -142,16 +156,20 @@ class WarehouseFloorPlan {
 }
 
 
-const wareHouseFloorPlan = new WarehouseFloorPlan("warehouseCanvas");
+const wareHouseFloorPlan = new WarehouseFloorPlan("warehouseCanvas", true);
 const changeWarehouseFloorPlanButton = document.getElementById("changeWarehouseFloorPlan");
 const generateLocationTestSetButton = document.getElementById("generateLocationsButton");
 
+// draw an initial warehouse floor plan
 wareHouseFloorPlan.drawStorageShelfFloorPlan(5, 3, wareHouseFloorPlan.canvas.height, wareHouseFloorPlan.canvas.width);
-wareHouseFloorPlan.drawDebuggingGrid();
 
 changeWarehouseFloorPlanButton.addEventListener("click", function () {
     let aisles = document.getElementById("warehouseAisleCount").value;
     let crossings = document.getElementById("warehouseCrossingCount").value;
+    localStorage.setItem("wareHouseFloorPlan", JSON.stringify({
+        aisles: aisles,
+        crossings: crossings
+    }));
 
     if (aisles < 1 || crossings < 1) {
         alert("Please enter a valid number for aisles and crossings");
@@ -173,14 +191,14 @@ generateLocationTestSetButton.addEventListener("click", function () {
     })
         .then(response => response.json())
         .then(data => {
+            // store the locations in local storage for later route calculation
+            localStorage.setItem("stockLocations", JSON.stringify(data));
+
+            // draw the locations on the canvas
+            wareHouseFloorPlan.drawPickingMarkers(data);
+
+            // display the locations in a table
             let tableBody = document.querySelector("#locationTable tbody")
-            for (let i = 0; i < data.length; i++) {
-                let offsetX = wareHouseFloorPlan.normalizedCoordinate.x
-                let offsetY = wareHouseFloorPlan.normalizedCoordinate.y
-                let x = data[i].x * wareHouseFloorPlan.horizontalGridSize + 0.5 * wareHouseFloorPlan.horizontalGridSize;
-                let y = data[i].y * wareHouseFloorPlan.verticalGridSize + 0.5 * wareHouseFloorPlan.verticalGridSize;
-                wareHouseFloorPlan.drawPickingMarker(x + offsetX, y + offsetY);
-            }
             data.forEach(location => {
             let row = document.createElement("tr");
             row.innerHTML = `
