@@ -146,7 +146,7 @@ const wareHouseFloorPlan = new WarehouseFloorPlan("warehouseCanvas");
 const changeWarehouseFloorPlanButton = document.getElementById("changeWarehouseFloorPlan");
 const generateLocationTestSetButton = document.getElementById("generateLocationsButton");
 
-wareHouseFloorPlan.drawStorageShelfFloorPlan(3, 2, wareHouseFloorPlan.canvas.height, wareHouseFloorPlan.canvas.width);
+wareHouseFloorPlan.drawStorageShelfFloorPlan(5, 3, wareHouseFloorPlan.canvas.height, wareHouseFloorPlan.canvas.width);
 wareHouseFloorPlan.drawDebuggingGrid();
 
 changeWarehouseFloorPlanButton.addEventListener("click", function () {

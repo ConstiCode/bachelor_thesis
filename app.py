@@ -39,12 +39,14 @@ def location_to_grid_tuple(location: int, shelf_columns: int) -> (int, int):
     | 6 | 12 |
     +---+----+
     """
+    if location <= 0:
+        raise ValueError("Location must be greater than 0")
 
-    # calulate the y coordinate
+    # calculate the y coordinate
     shelf_number = math.ceil(location / 12)
     shelf_row = math.ceil(shelf_number / shelf_columns)
 
-    shelf_start_coordinate = (shelf_row - 1) * 8 if (shelf_row - 1) * 8 else 1
+    shelf_start_coordinate = (shelf_row - 1) * 7 + 1
 
     offset_y = (location % 6) - 1 if location % 6 else 5
     y = shelf_start_coordinate + offset_y
