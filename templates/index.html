@@ -63,6 +63,14 @@
             outline: none;
         }
 
+        #locationTableContainer {
+            margin-top: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
     </style>
 </head>
 <body>
@@ -104,6 +112,19 @@
         <input type="number" id="locationCount" name="locationCount" placeholder="Number of Locations"/>
         <button id="generateLocationsButton" type="submit">Generate To Be Visited Stock Locations</button>
 
+        <div id="locationTableContainer">
+            <h2>Stock Locations</h2>
+            <table id="locationTable">
+                <thead>
+                <tr>
+                    <th>Location Number</th>
+                    <th>X Coordinate</th>
+                    <th>Y Coordinate</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
 </body>
 </html>

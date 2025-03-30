@@ -1,7 +1,7 @@
 from unicodedata import normalize
 import math
 
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 import random
 
 app = Flask(__name__)
@@ -19,9 +19,10 @@ def calculate_relative_position(location: int, shelf_start_coordinate: (int, int
     return x, y
 
 
-def turn_location_into_grid_tuple(location: int, shelf_columns: int, shelf_rows: int) -> (int, int):
+def location_to_grid_tuple(location: int, shelf_columns: int) -> (int, int):
     """
-    This works for x calculation. todo Still need to implement y.
+    Turns a location number into a given coordinate for the html canvas grid. This allows dynamic changes of the grid.
+    Only works for location > 0.
 
     Shelf Representation:
     +---+----+
@@ -39,15 +40,25 @@ def turn_location_into_grid_tuple(location: int, shelf_columns: int, shelf_rows:
     +---+----+
     """
 
+    # calulate the y coordinate
     shelf_number = math.ceil(location / 12)
+    shelf_row = math.ceil(shelf_number / shelf_columns)
+
+    shelf_start_coordinate = (shelf_row - 1) * 8 if (shelf_row - 1) * 8 else 1
+
+    offset_y = (location % 6) - 1 if location % 6 else 5
+    y = shelf_start_coordinate + offset_y
+
+    # calculate the x coordinates
     row_length = 4 * shelf_columns
 
-    # depending if the location is placed in the first or second column of the shelf the offset must fit
-    offset = 3 if location <= ((shelf_number - 1) * 12) + 6 else 2
+    # if the location is placed in the first or second column of the shelf the offset must fit
+    offset_x = 3 if location <= ((shelf_number - 1) * 12) + 6 else 2
 
-    x = (shelf_number * 4) - offset  # x coordinate for a layout without any shelf rows
-    x %= row_length  # -1 as the coordinate system starts from 0
-    return x
+    x = (shelf_number * 4) - offset_x  # x coordinate for a layout without any shelf rows
+    x %= row_length
+
+    return {"location_number": location, "x": x - 1, "y": y - 1}
 
 
 @app.route('/')
@@ -66,17 +77,19 @@ def generate_test_locations() -> [(int, int)]:
     number_of_rows = int(warehouse.get('numCrossings'))
     product_count = int(info.get('product_count'))  # Todo fix possible conversion error here
 
-    if not product_count or product_count <= 0:
-        return []
-
-    normalized_coordinate = warehouse.get('normalizedCoordinate')
-
     # As each shelf is 6 grids high and 2 grids wide we assume that shelf has 12 stock locations
     number_of_shelves = number_of_rows * number_of_shelf_columns
     number_of_locations = number_of_shelves * 12
 
-    locations = [random.randint(0, number_of_locations) for _ in range(product_count)]
-    return turn_location_into_grid_tuple(37, number_of_shelf_columns, number_of_rows)
+    if not product_count or product_count <= 0 or product_count > number_of_locations:
+        return []
+
+    random_numbers = random.sample(range(1, number_of_locations + 1), product_count)
+
+    locations = [location_to_grid_tuple(random_number, number_of_shelf_columns) for random_number in random_numbers]
+    # locations = [location_to_grid_tuple(37, number_of_shelf_columns)]
+
+    return jsonify(locations)
 
     # turn locations into grid tuples
 

@@ -25,7 +25,7 @@ class WarehouseFloorPlan {
         let startPositionY = (this.canvas.height / 2) + offset;
         let positionY = startPositionY - this.numCrossings * (this.verticalGridSize * 7);
 
-        let positionX = (this.canvas.width / 2) - 2 * this.horizontalGridSize;
+        let positionX = ((this.canvas.width / 2) - 2 * this.horizontalGridSize) -0.5 * this.horizontalGridSize;
         this.ctx.rect(positionX, positionY, this.horizontalGridSize * 3, this.horizontalGridSize); // x, y, width, height
         this.ctx.fillStyle = "lightblue";
         this.ctx.fill(); // Draw the outline
@@ -119,6 +119,26 @@ class WarehouseFloorPlan {
         // draw the packing table that is the start and end point of the route
         this.drawPackingTable();
     }
+
+    drawDebuggingGrid() {
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = "black";
+        this.ctx.lineWidth = 1;
+
+        // draw horizontal lines
+        for (let i = 0; i < this.canvas.height; i += this.verticalGridSize) {
+            this.ctx.moveTo(0, i);
+            this.ctx.lineTo(this.canvas.width, i);
+        }
+
+        // draw vertical lines
+        for (let i = 0; i < this.canvas.width; i += this.horizontalGridSize) {
+            this.ctx.moveTo(i, 0);
+            this.ctx.lineTo(i, this.canvas.height);
+        }
+
+        this.ctx.stroke();
+    }
 }
 
 
@@ -127,8 +147,7 @@ const changeWarehouseFloorPlanButton = document.getElementById("changeWarehouseF
 const generateLocationTestSetButton = document.getElementById("generateLocationsButton");
 
 wareHouseFloorPlan.drawStorageShelfFloorPlan(3, 2, wareHouseFloorPlan.canvas.height, wareHouseFloorPlan.canvas.width);
-wareHouseFloorPlan.drawPickingMarker(wareHouseFloorPlan.normalizedCoordinate.x, wareHouseFloorPlan.normalizedCoordinate.y);
-wareHouseFloorPlan.drawWarehouseRoute([{x: 0, y: 30.5}, {x: 50, y: 30.5}]);
+wareHouseFloorPlan.drawDebuggingGrid();
 
 changeWarehouseFloorPlanButton.addEventListener("click", function () {
     let aisles = document.getElementById("warehouseAisleCount").value;
@@ -154,7 +173,23 @@ generateLocationTestSetButton.addEventListener("click", function () {
     })
         .then(response => response.json())
         .then(data => {
-            alert(data.message);
+            let tableBody = document.querySelector("#locationTable tbody")
+            for (let i = 0; i < data.length; i++) {
+                let offsetX = wareHouseFloorPlan.normalizedCoordinate.x
+                let offsetY = wareHouseFloorPlan.normalizedCoordinate.y
+                let x = data[i].x * wareHouseFloorPlan.horizontalGridSize + 0.5 * wareHouseFloorPlan.horizontalGridSize;
+                let y = data[i].y * wareHouseFloorPlan.verticalGridSize + 0.5 * wareHouseFloorPlan.verticalGridSize;
+                wareHouseFloorPlan.drawPickingMarker(x + offsetX, y + offsetY);
+            }
+            data.forEach(location => {
+            let row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${location.location_number}</td>
+                <td>${location.x}</td>
+                <td>${location.y}</td>
+            `;
+            tableBody.appendChild(row);
+        });
         })
         .catch(error => console.error('Error:', error));
 });
