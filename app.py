@@ -6,7 +6,7 @@ import random
 
 app = Flask(__name__)
 
-
+# Todo check if this is needed
 def calculate_relative_position(location: int, shelf_start_coordinate: (int, int)) -> (int, int):
     n_th_position_in_shelf = location % 12
 
@@ -17,27 +17,53 @@ def calculate_relative_position(location: int, shelf_start_coordinate: (int, int
     y = n_th_position_in_shelf + shelf_start_coordinate[1]
 
     return x, y
-
+"""
+def manhattan_distance(a: (int, int), b: (int, int)) -> int:
+    
+    Calculate the Manhattan distance between two points a and b.
+    :param a: tuple of (x, y) coordinates for point a
+    :param b: tuple of (x, y) coordinates for point b
+    :return: Manhattan distance as an integer
+    
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])"""
 
 def location_to_grid_tuple(location: int, shelf_columns: int) -> (int, int):
     """
     Turns a location number into a given coordinate for the html canvas grid. This allows dynamic changes of the grid.
     Only works for location > 0.
 
+    The following comment was created with ChatGPT
     Shelf Representation:
-    +---+----+
-    | 1 |  7 |
-    +---+----+
-    | 2 |  8 |
-    +---+----+
-    | 3 |  9 |
-    +---+----+
-    | 4 | 10 |
-    +---+----+
-    | 5 | 11 |
-    +---+----+
-    | 6 | 12 |
-    +---+----+
+              1      2      3       4      5
+        +----+----+  +----+----+  +----+----+
+     1  |  1 |  7 |  | 13 | 19 |  | 25 | 31 |
+        +----+----+  +----+----+  +----+----+
+     2  |  2 |  8 |  | 14 | 20 |  | 26 | 32 |
+        +----+----+  +----+----+  +----+----+
+     3  |  3 |  9 |  | 15 | 21 |  | 27 | 33 |
+        +----+----+  +----+----+  +----+----+
+     4  |  4 | 10 |  | 16 | 22 |  | 28 | 34 |
+        +----+----+  +----+----+  +----+----+
+     5  |  5 | 11 |  | 17 | 23 |  | 29 | 35 |
+        +----+----+  +----+----+  +----+----+
+     6  |  6 | 12 |  | 18 | 24 |  | 30 | 36 |
+        +----+----+  +----+----+  +----+----+
+
+        +----+----+  +----+----+  +----+----+
+     8  | 37 | 43 |  | 49 | 55 |  | 61 | 67 |
+        +----+----+  +----+----+  +----+----+
+     9  | 38 | 44 |  | 50 | 56 |  | 62 | 68 |
+        +----+----+  +----+----+  +----+----+
+    10  | 39 | 45 |  | 51 | 57 |  | 63 | 69 |
+        +----+----+  +----+----+  +----+----+
+    11  | 40 | 46 |  | 52 | 58 |  | 64 | 70 |
+        +----+----+  +----+----+  +----+----+
+    12  | 41 | 47 |  | 53 | 59 |  | 65 | 71 |
+        +----+----+  +----+----+  +----+----+
+    13  | 42 | 48 |  | 54 | 60 |  | 66 | 72 |
+        +----+----+  +----+----+  +----+----+
+
+
     """
     if location <= 0:
         raise ValueError("Location must be greater than 0")
@@ -93,14 +119,7 @@ def generate_test_locations() -> [(int, int)]:
 
     return jsonify(locations)
 
-    # turn locations into grid tuples
-
-    # Todo letzter status: versucht die locations in die grid tuples zu übertragen. Hierfür dachte ich daran im
-    # frontend die obere ecke des squares für die berechnung zu nehmen. Die Koordinate der oberen ecke ist
-    # (wareHouseFloorPlan.canvas.height / 2) + wareHouseFloorPlan.offset + die höhe der anderen regale und lücken
-
-    # Todo: Überlege welche varialblen im frontend wirklich this sein müssen und welche nicht.
-
+    # todo check why x = 0 when it actually should be 1 in the table in the frontend
 
 if __name__ == '__main__':
     app.run()
