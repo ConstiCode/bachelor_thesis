@@ -3,8 +3,23 @@ import math
 
 from flask import Flask, render_template, request, jsonify
 import random
+import heapq
 
 app = Flask(__name__)
+
+
+class StockLocation:
+    def __init__(self, location_number: int, x: int, y: int):
+        self.location_number = location_number
+        self.x = x
+        self.y = y
+
+    def __repr__(self):
+        return f"StockLocation(location_number={self.location_number}, x={self.x}, y={self.y})"
+
+    def __eq__(self, other):
+        return (self.location_number, self.x, self.y) == (other.location_number, other.x, other.y)
+
 
 # Todo check if this is needed
 def calculate_relative_position(location: int, shelf_start_coordinate: (int, int)) -> (int, int):
@@ -17,15 +32,38 @@ def calculate_relative_position(location: int, shelf_start_coordinate: (int, int
     y = n_th_position_in_shelf + shelf_start_coordinate[1]
 
     return x, y
-"""
+
+
+def calc_nearest_neighbor_heuristic_route(locations: [dict], start_pos: dict) -> [int]:
+    """ Calculates a path through the warehouse using the nearest neighbor heuristic. """
+    route = [start_pos]
+    remaining_locations = locations.copy()
+    while remaining_locations:
+        # Find the nearest neighbor
+        route.append(_nearest_neighbor(route[-1], remaining_locations))
+        remaining_locations.remove(route[-1])
+
+    return route
+
+
+def _nearest_neighbor(start_location: dict, locations: [tuple[int, int]]) -> (int, int):
+    priority_queue = []
+    for location in locations:
+        dis = manhattan_distance((start_location.get('x'), start_location.get('y')),
+                                 (location.get('x'), location.get('y')))
+        heapq.heappush(priority_queue, (dis, location))
+    return heapq.heappop(priority_queue)[1]
+
+
 def manhattan_distance(a: (int, int), b: (int, int)) -> int:
-    
+    """
     Calculate the Manhattan distance between two points a and b.
     :param a: tuple of (x, y) coordinates for point a
     :param b: tuple of (x, y) coordinates for point b
     :return: Manhattan distance as an integer
-    
-    return abs(a[0] - b[0]) + abs(a[1] - b[1])"""
+    """
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
 
 def location_to_grid_tuple(location: int, shelf_columns: int) -> (int, int):
     """
@@ -120,6 +158,32 @@ def generate_test_locations() -> [(int, int)]:
     return jsonify(locations)
 
     # todo check why x = 0 when it actually should be 1 in the table in the frontend
+
+
+@app.route('/calculate-route', methods=['POST'])
+def calculate_route():
+    """Calculates the route for the given locations"""
+
+    info = request.get_json()
+    algorithms = info.get('algorithms')
+    locations = info.get('locations')
+    packing_table = {'x': 0,
+                     'y': 0} # Todo fix this and have actual coordinates
+
+    routes = {}
+    for algorithm in algorithms:
+        if algorithm == 'nearestNeighbor':
+            routes['nearestNeighbor'] = calc_nearest_neighbor_heuristic_route(locations, packing_table)
+            routes = routes.get('nearestNeighbor')[1:]
+        elif algorithm == 'greedy':
+            # todo implement this algorithm
+            pass
+        elif algorithm == 'fixed_parameter':
+            # todo implement this algorithm
+            pass
+
+    return jsonify(routes)
+
 
 if __name__ == '__main__':
     app.run()

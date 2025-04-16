@@ -32,10 +32,13 @@ class WarehouseFloorPlan {
         let startPositionY = (this.canvas.height / 2) + offset;
         let positionY = startPositionY - this.numCrossings * (this.verticalGridSize * 7);
 
-        let positionX = ((this.canvas.width / 2) - 2 * this.horizontalGridSize) -0.5 * this.horizontalGridSize;
+        let positionX = ((this.canvas.width / 2) - 2 * this.horizontalGridSize) - 0.5 * this.horizontalGridSize;
         this.ctx.rect(positionX, positionY, this.horizontalGridSize * 3, this.horizontalGridSize); // x, y, width, height
         this.ctx.fillStyle = "lightblue";
         this.ctx.fill(); // Draw the outline
+
+        this.positionPackingTable = { x: positionX, y: positionY }; // Todo check if this is correct and adjust for center
+
 
         // Set text styles
         let fontSize = Math.floor(45 / this.numAisles);
@@ -90,7 +93,6 @@ class WarehouseFloorPlan {
         // draw the route that is given in tuples from the backend
         //      - valid aisles are multiples of xStart + or -4 as one shelf is 2 grids wide
         //      - valid columns are multiples of xStart + 0,5 offset and + or minus 6
-
 
         this.ctx.beginPath();
         for (let i = 0; i < route.length; i++) {
@@ -159,6 +161,7 @@ class WarehouseFloorPlan {
 const wareHouseFloorPlan = new WarehouseFloorPlan("warehouseCanvas", true);
 const changeWarehouseFloorPlanButton = document.getElementById("changeWarehouseFloorPlan");
 const generateLocationTestSetButton = document.getElementById("generateLocationsButton");
+const triggerRouteCalculationButton = document.getElementById("triggerRouteCalculationButton");
 
 // draw an initial warehouse floor plan
 wareHouseFloorPlan.drawStorageShelfFloorPlan(5, 3, wareHouseFloorPlan.canvas.height, wareHouseFloorPlan.canvas.width);
@@ -200,15 +203,53 @@ generateLocationTestSetButton.addEventListener("click", function () {
             // display the locations in a table
             let tableBody = document.querySelector("#locationTable tbody")
             data.forEach(location => {
-            let row = document.createElement("tr");
-            row.innerHTML = `
+                let row = document.createElement("tr");
+                row.innerHTML = `
                 <td>${location.location_number}</td>
                 <td>${location.x}</td>
                 <td>${location.y}</td>
             `;
-            tableBody.appendChild(row);
-        });
+                tableBody.appendChild(row);
+            });
         })
         .catch(error => console.error('Error:', error));
 });
 
+function checkSelected() {
+    const checkboxes = document.querySelectorAll('input[name="selections"]:checked');
+    let algorithms =  Array.from(checkboxes).map(cb => cb.value);
+    if (algorithms.length === 0) {
+        alert("Please select at least one algorithm");
+    }
+    return algorithms;
+}
+
+triggerRouteCalculationButton.addEventListener("click", function () {
+    let stockLocations = JSON.parse(localStorage.getItem("stockLocations"));
+    if (!stockLocations) {
+        alert("Please generate locations first");
+        return;
+    }
+
+    fetch('/calculate-route', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            packing_table: {
+                x : wareHouseFloorPlan.positionPackingTable.x,
+                y : wareHouseFloorPlan.positionPackingTable.y
+            },
+            locations: stockLocations,
+            algorithms: checkSelected()
+        })
+    })
+        .then(response => response.json())
+        .then(data => {
+            // draw the route on the canvas
+            console.log(wareHouseFloorPlan.positionPackingTable);
+            wareHouseFloorPlan.drawWarehouseRoute(data);
+        })
+        .catch(error => console.error('Error:', error));
+});
