@@ -1,40 +1,147 @@
-from unicodedata import normalize
 import math
+import heapq
 
 from flask import Flask, render_template, request, jsonify
 import random
-import heapq
 
 app = Flask(__name__)
 
 
-class StockLocation:
-    def __init__(self, location_number: int, x: int, y: int):
-        self.location_number = location_number
-        self.x = x
-        self.y = y
-
-    def __repr__(self):
-        return f"StockLocation(location_number={self.location_number}, x={self.x}, y={self.y})"
-
-    def __eq__(self, other):
-        return (self.location_number, self.x, self.y) == (other.location_number, other.x, other.y)
+def _f_score(g, s_coordinate, e_coordinate):
+    """f(n) = g(n) + h(n), where h is the Manhattan distance"""
+    h = abs(s_coordinate[0] - e_coordinate[0]) + abs(s_coordinate[1] - e_coordinate[1])
+    return g + h
 
 
-# Todo check if this is needed
-def calculate_relative_position(location: int, shelf_start_coordinate: (int, int)) -> (int, int):
-    n_th_position_in_shelf = location % 12
-
-    if n_th_position_in_shelf > 6:
-        x = 1 + shelf_start_coordinate[0]
-    x = 0 + shelf_start_coordinate[0]
-
-    y = n_th_position_in_shelf + shelf_start_coordinate[1]
-
-    return x, y
+def _check_if_possible_path(grid, position):
+    """Check bounds and if position is walkable (1 = walkable, 0 = blocked)."""
+    x, y = position
+    if 0 <= x < len(grid[0]) and 0 <= y < len(grid):
+        return grid[y][x] == 1
+    return False
 
 
-def calc_nearest_neighbor_heuristic_route(locations: [dict], start_pos: dict) -> [int]:
+def _get_possible_neighbors(grid, position):
+    """Return valid neighbor coordinates from current position."""
+    neighbors = []
+    directions = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+    for dx, dy in directions:
+        neighbor = (position[0] + dx, position[1] + dy)
+        if _check_if_possible_path(grid, neighbor):
+            neighbors.append(neighbor)
+    return neighbors
+
+
+def _reconstruct_path(came_from, current):
+    """Trace back the path from end to start."""
+    path = [current]
+    while current in came_from:
+        current = came_from[current]
+        path.append(current)
+    return path[::-1]
+
+
+def a_star(grid, start, dest):
+    open_set = []
+    heapq.heappush(open_set, (0, start))  # (f_score, position)
+
+    came_from = {}
+    g_score = {start: 0}
+
+    while open_set:
+        _, current = heapq.heappop(open_set)
+
+        if current == dest:
+            return _reconstruct_path(came_from, current)
+
+        for neighbor in _get_possible_neighbors(grid, current):
+            tentative_g = g_score[current] + 1  # Assume cost between nodes is 1
+            if neighbor not in g_score or tentative_g < g_score[neighbor]:
+                came_from[neighbor] = current
+                g_score[neighbor] = tentative_g
+                f = _f_score(tentative_g, neighbor, dest)
+                heapq.heappush(open_set, (f, neighbor))
+
+    return None  # No path found
+
+
+def generate_warehouse_grid(num_isles: int, num_rows: int) -> list[list[int]]:
+    """
+    Generates a warehouse grid based on the number of vertical isles and rows of shelves.
+    Each shelf is 2 columns wide and 6 rows tall, separated by walkable aisles (1 space).
+
+    Parameters:
+    - num_isles: number of vertical shelves
+    - num_rows: number of horizontal shelf blocks
+
+    Returns:
+    - grid: 2D list representing the warehouse layout (1 = walkable, 0 = shelf)
+    """
+    shelf_height = 6
+    aisle_height = 1
+    shelf_width = 2
+    aisle_width = 1
+
+    total_rows = num_rows * shelf_height + (num_rows + 1) * aisle_height
+    total_cols = num_isles * shelf_width + (num_isles + 1) * aisle_width
+
+    grid = [[1 for _ in range(total_cols)] for _ in range(total_rows)]
+
+    for row_block in range(num_rows):
+        for isle in range(num_isles):
+            top = row_block * (shelf_height + aisle_height) + aisle_height
+            left = isle * (shelf_width + aisle_width) + aisle_width
+
+            for y in range(top, top + shelf_height):
+                for x in range(left, left + shelf_width):
+                    grid[y][x] = 0  # 0 means shelf (not walkable)
+
+    return grid
+
+
+def create_a_star_route(num_isles, num_rows, stock_locations):
+    """
+    Generates a full path through warehouse using A* between accessible tiles near stock locations.
+    """
+    grid = generate_warehouse_grid(num_isles, num_rows)
+
+    full_route = []
+    for i in range(len(stock_locations) - 1):
+        # Original shelf coordinates (likely blocked)
+        raw_start = (stock_locations[i]['x'], stock_locations[i]['y'])
+        raw_end = (stock_locations[i + 1]['x'], stock_locations[i + 1]['y'])
+
+        def _stock_loc_coordinate_to_route_loc(coordinate: tuple[int, int]) -> tuple[int, int]:
+            """Convert stock location coordinates to route coordinates. Coordinates are inverted as (y,x)."""
+            coordinate = list(coordinate)
+            y = coordinate[1]
+            x = coordinate[0]
+
+            if grid[y][x]:
+                raise ValueError("The given coordinate is a aisle not a location.")
+
+            if grid[y][x + 1]:
+                return x + 1, y
+            return x - 1, y
+
+        # Convert to nearest accessible (aisle) coordinates
+        start = _stock_loc_coordinate_to_route_loc(raw_start)
+        end = _stock_loc_coordinate_to_route_loc(raw_end)
+
+        # Use A* to get path between these two
+        path_segment = a_star(grid, start, end)
+
+        if path_segment:
+            # Avoid duplicate positions when paths overlap
+            if full_route and full_route[-1] == path_segment[0]:
+                full_route.extend(path_segment[1:])
+            else:
+                full_route.extend(path_segment)
+    return full_route
+
+
+def calc_nearest_neighbor_heuristic_route(locations: [dict], start_pos: dict, num_shelf_cols: int,
+                                          num_shelf_rows: int) -> [int]:
     """ Calculates a path through the warehouse using the nearest neighbor heuristic. """
     route = [start_pos]
     remaining_locations = locations.copy()
@@ -43,16 +150,17 @@ def calc_nearest_neighbor_heuristic_route(locations: [dict], start_pos: dict) ->
         route.append(_nearest_neighbor(route[-1], remaining_locations))
         remaining_locations.remove(route[-1])
 
-    return route
+    grid_route = create_a_star_route(num_shelf_cols, num_shelf_rows, route)
+    return grid_route
 
 
-def _nearest_neighbor(start_location: dict, locations: [tuple[int, int]]) -> (int, int):
-    priority_queue = []
-    for location in locations:
-        dis = manhattan_distance((start_location.get('x'), start_location.get('y')),
-                                 (location.get('x'), location.get('y')))
-        heapq.heappush(priority_queue, (dis, location))
-    return heapq.heappop(priority_queue)[1]
+def _nearest_neighbor(start_location: dict, locations: list[dict]) -> dict:
+    # Todo check here if i can improve performance by experimenting with manhattan distance and a* search
+    sx, sy = start_location['x'], start_location['y']
+    return min(
+        locations,
+        key=lambda loc: manhattan_distance((sx, sy), (loc['x'], loc['y']))
+    )
 
 
 def manhattan_distance(a: (int, int), b: (int, int)) -> int:
@@ -65,7 +173,7 @@ def manhattan_distance(a: (int, int), b: (int, int)) -> int:
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
 
-def location_to_grid_tuple(location: int, shelf_columns: int) -> (int, int):
+def location_to_grid_tuple(location: int, shelf_columns: int):
     """
     Turns a location number into a given coordinate for the html canvas grid. This allows dynamic changes of the grid.
     Only works for location > 0.
@@ -115,16 +223,12 @@ def location_to_grid_tuple(location: int, shelf_columns: int) -> (int, int):
     offset_y = (location % 6) - 1 if location % 6 else 5
     y = shelf_start_coordinate + offset_y
 
-    # calculate the x coordinates
-    row_length = 4 * shelf_columns
-
-    # if the location is placed in the first or second column of the shelf the offset must fit
-    offset_x = 3 if location <= ((shelf_number - 1) * 12) + 6 else 2
-
-    x = (shelf_number * 4) - offset_x  # x coordinate for a layout without any shelf rows
-    x %= row_length
-
-    return {"location_number": location, "x": x - 1, "y": y - 1}
+    # calculate the x coordinate
+    # shelf_coulumn is the number that x would be if all the shelfs would be next to each other witjout any aisles to walk
+    shelf_column = math.ceil(location / 6)
+    x = shelf_column + shelf_number - 1
+    x %= shelf_columns * 3
+    return {"location_number": location, "x": x, "y": y}
 
 
 @app.route('/')
@@ -167,13 +271,17 @@ def calculate_route():
     info = request.get_json()
     algorithms = info.get('algorithms')
     locations = info.get('locations')
-    packing_table = {'x': 0,
-                     'y': 0} # Todo fix this and have actual coordinates
+    warehouse = info.get('warehouse_floor_plan')
+    number_of_shelf_columns = int(warehouse.get('numAisles'))  # todo fix this naming issue
+    number_of_rows = int(warehouse.get('numCrossings'))
+    packing_table = {'x': 1,
+                     'y': 1}  # Todo fix this and have actual coordinates
 
     routes = {}
     for algorithm in algorithms:
         if algorithm == 'nearestNeighbor':
-            routes['nearestNeighbor'] = calc_nearest_neighbor_heuristic_route(locations, packing_table)
+            routes['nearestNeighbor'] = calc_nearest_neighbor_heuristic_route(locations, packing_table,
+                                                                              number_of_shelf_columns, number_of_rows)
             routes = routes.get('nearestNeighbor')[1:]
         elif algorithm == 'greedy':
             # todo implement this algorithm

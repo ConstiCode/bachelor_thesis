@@ -37,7 +37,7 @@ class WarehouseFloorPlan {
         this.ctx.fillStyle = "lightblue";
         this.ctx.fill(); // Draw the outline
 
-        this.positionPackingTable = { x: positionX, y: positionY }; // Todo check if this is correct and adjust for center
+        this.positionPackingTable = {x: positionX, y: positionY}; // Todo check if this is correct and adjust for center
 
 
         // Set text styles
@@ -69,7 +69,7 @@ class WarehouseFloorPlan {
 
         for (let i = 0; i < this.numAisles; i++) {
             this.drawStorageShelf(startPosition, this.startPositionY, this.horizontalGridSize);
-            startPosition = startPosition + 4 * this.horizontalGridSize;
+            startPosition = startPosition + 3 * this.horizontalGridSize;
         }
     }
 
@@ -78,8 +78,8 @@ class WarehouseFloorPlan {
         for (let i = 0; i < positions.length; i++) {
             let offsetX = this.normalizedCoordinate.x;
             let offsetY = this.normalizedCoordinate.y;
-            let x = (positions[i].x * this.horizontalGridSize + 0.5 * this.horizontalGridSize) + offsetX;
-            let y = (positions[i].y * this.verticalGridSize + 0.5 * this.verticalGridSize) + offsetY;
+            let x = ((positions[i].x - 1) * this.horizontalGridSize + 0.5 * this.horizontalGridSize) + offsetX;
+            let y = ((positions[i].y - 1) * this.verticalGridSize + 0.5 * this.verticalGridSize) + offsetY;
 
             this.ctx.beginPath();
             this.ctx.arc(x, y, Math.max(this.horizontalGridSize, this.verticalGridSize) / 12, 0, 2 * Math.PI);
@@ -96,7 +96,9 @@ class WarehouseFloorPlan {
 
         this.ctx.beginPath();
         for (let i = 0; i < route.length; i++) {
-            this.ctx.lineTo(route[i].x * this.horizontalGridSize, route[i].y * this.verticalGridSize);
+            let offsetX = this.normalizedCoordinate.x + 0.5 * this.horizontalGridSize;
+            let offsetY = this.normalizedCoordinate.y + 0.5 * this.verticalGridSize;
+            this.ctx.lineTo((route[i][0] - 1) * this.horizontalGridSize + offsetX, (route[i][1] - 1) * this.verticalGridSize + offsetY);
             this.ctx.strokeStyle = "red";
         }
         this.ctx.strokeStyle = "red"; // Set the line color to red
@@ -197,11 +199,18 @@ generateLocationTestSetButton.addEventListener("click", function () {
             // store the locations in local storage for later route calculation
             localStorage.setItem("stockLocations", JSON.stringify(data));
 
+            // reset the canvas and draw the warehouse floor plan
+            wareHouseFloorPlan.clearCanvas();
+            wareHouseFloorPlan.drawStorageShelfFloorPlan(wareHouseFloorPlan.numAisles, wareHouseFloorPlan.numCrossings);
+
             // draw the locations on the canvas
             wareHouseFloorPlan.drawPickingMarkers(data);
 
-            // display the locations in a table
+            // clear the table before displaying new locations
             let tableBody = document.querySelector("#locationTable tbody")
+            tableBody.innerHTML = "";
+
+            // display the locations in a table
             data.forEach(location => {
                 let row = document.createElement("tr");
                 row.innerHTML = `
@@ -217,7 +226,7 @@ generateLocationTestSetButton.addEventListener("click", function () {
 
 function checkSelected() {
     const checkboxes = document.querySelectorAll('input[name="selections"]:checked');
-    let algorithms =  Array.from(checkboxes).map(cb => cb.value);
+    let algorithms = Array.from(checkboxes).map(cb => cb.value);
     if (algorithms.length === 0) {
         alert("Please select at least one algorithm");
     }
@@ -237,9 +246,10 @@ triggerRouteCalculationButton.addEventListener("click", function () {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+            warehouse_floor_plan: wareHouseFloorPlan,
             packing_table: {
-                x : wareHouseFloorPlan.positionPackingTable.x,
-                y : wareHouseFloorPlan.positionPackingTable.y
+                x: wareHouseFloorPlan.positionPackingTable.x,
+                y: wareHouseFloorPlan.positionPackingTable.y
             },
             locations: stockLocations,
             algorithms: checkSelected()
