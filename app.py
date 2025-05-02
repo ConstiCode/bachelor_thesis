@@ -85,7 +85,7 @@ def generate_warehouse_grid(num_isles: int, num_rows: int) -> list[list[int]]:
     total_rows = num_rows * shelf_height + (num_rows + 1) * aisle_height
     total_cols = num_isles * shelf_width + (num_isles + 1) * aisle_width
 
-    grid = [[1 for _ in range(total_cols)] for _ in range(total_rows)]
+    grid = [[1 for _ in range(total_cols)] for _ in range(total_rows + 3)]
 
     for row_block in range(num_rows):
         for isle in range(num_isles):
@@ -95,6 +95,9 @@ def generate_warehouse_grid(num_isles: int, num_rows: int) -> list[list[int]]:
             for y in range(top, top + shelf_height):
                 for x in range(left, left + shelf_width):
                     grid[y][x] = 0  # 0 means shelf (not walkable)
+
+    # mark the packing table as a 1
+    grid[total_rows][total_cols // 2] = 1
 
     return grid
 
@@ -111,22 +114,29 @@ def create_a_star_route(num_isles, num_rows, stock_locations):
         raw_start = (stock_locations[i]['x'], stock_locations[i]['y'])
         raw_end = (stock_locations[i + 1]['x'], stock_locations[i + 1]['y'])
 
-        def _stock_loc_coordinate_to_route_loc(coordinate: tuple[int, int]) -> tuple[int, int]:
+        def _stock_loc_coordinate_to_route_loc(coordinate: tuple[int, int], is_aisle=False) -> tuple[int, int]:
             """Convert stock location coordinates to route coordinates. Coordinates are inverted as (y,x)."""
             coordinate = list(coordinate)
             y = coordinate[1]
             x = coordinate[0]
 
-            if grid[y][x]:
+            if not is_aisle and grid[y][x]:
                 raise ValueError("The given coordinate is a aisle not a location.")
+
+            if is_aisle and grid[y][x]:
+                return x, y
+
+            if is_aisle and not grid[y][x]:
+                raise ValueError(
+                    "The given coordinate is expected to be a aisle however it is not. (is_aisle=False but should be true).")
 
             if grid[y][x + 1]:
                 return x + 1, y
             return x - 1, y
 
         # Convert to nearest accessible (aisle) coordinates
-        start = _stock_loc_coordinate_to_route_loc(raw_start)
-        end = _stock_loc_coordinate_to_route_loc(raw_end)
+        start = _stock_loc_coordinate_to_route_loc(raw_start, False if i else True)
+        end = _stock_loc_coordinate_to_route_loc(raw_end, True if i + 2 == len(stock_locations) else False)
 
         # Use A* to get path between these two
         path_segment = a_star(grid, start, end)
@@ -149,7 +159,7 @@ def calc_nearest_neighbor_heuristic_route(locations: [dict], start_pos: dict, nu
         # Find the nearest neighbor
         route.append(_nearest_neighbor(route[-1], remaining_locations))
         remaining_locations.remove(route[-1])
-
+    route.append(start_pos)  # Return to start position
     grid_route = create_a_star_route(num_shelf_cols, num_shelf_rows, route)
     return grid_route
 
@@ -224,7 +234,7 @@ def location_to_grid_tuple(location: int, shelf_columns: int):
     y = shelf_start_coordinate + offset_y
 
     # calculate the x coordinate
-    # shelf_coulumn is the number that x would be if all the shelfs would be next to each other witjout any aisles to walk
+    # shelf_column is the number that x would be if all the shelf's would be next to each other without any aisles to walk
     shelf_column = math.ceil(location / 6)
     x = shelf_column + shelf_number - 1
     x %= shelf_columns * 3
@@ -243,9 +253,12 @@ def generate_test_locations() -> [(int, int)]:
     info = request.get_json()
     warehouse = info.get('warehouse_floor_plan')
 
-    number_of_shelf_columns = int(warehouse.get('numAisles'))  # todo fix this naming issue
-    number_of_rows = int(warehouse.get('numCrossings'))
-    product_count = int(info.get('product_count'))  # Todo fix possible conversion error here
+    number_of_shelf_columns = int(warehouse.get('numColumns', False))
+    number_of_rows = int(warehouse.get('numCrossings', False))
+    product_count = int(info.get('product_count', False))
+
+    if not all([warehouse, number_of_shelf_columns, number_of_rows]):
+        return jsonify([])
 
     # As each shelf is 6 grids high and 2 grids wide we assume that shelf has 12 stock locations
     number_of_shelves = number_of_rows * number_of_shelf_columns
@@ -261,8 +274,6 @@ def generate_test_locations() -> [(int, int)]:
 
     return jsonify(locations)
 
-    # todo check why x = 0 when it actually should be 1 in the table in the frontend
-
 
 @app.route('/calculate-route', methods=['POST'])
 def calculate_route():
@@ -272,10 +283,19 @@ def calculate_route():
     algorithms = info.get('algorithms')
     locations = info.get('locations')
     warehouse = info.get('warehouse_floor_plan')
-    number_of_shelf_columns = int(warehouse.get('numAisles'))  # todo fix this naming issue
+    number_of_shelf_columns = int(warehouse.get('numColumns'))
     number_of_rows = int(warehouse.get('numCrossings'))
-    packing_table = {'x': 1,
-                     'y': 1}  # Todo fix this and have actual coordinates
+
+    shelf_height = 6
+    aisle_height = 1
+    shelf_width = 2
+    aisle_width = 1
+
+    total_width = number_of_shelf_columns * (shelf_width + aisle_width) + 1
+    total_rows = number_of_rows * shelf_height + number_of_rows * aisle_height + 1
+
+    packing_table = {'x': total_width // 2,
+                     'y': total_rows}
 
     routes = {}
     for algorithm in algorithms:

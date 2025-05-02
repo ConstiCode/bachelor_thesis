@@ -30,7 +30,7 @@ class WarehouseFloorPlan {
         // calculate the position of the packing table relative to the number of and crossings (Y)
         let offset = (this.numCrossings * 7 * this.verticalGridSize) / 2;
         let startPositionY = (this.canvas.height / 2) + offset;
-        let positionY = startPositionY - this.numCrossings * (this.verticalGridSize * 7);
+        let positionY = startPositionY + 8 * this.verticalGridSize; // this.numCrossings * (this.verticalGridSize * 7);
 
         let positionX = ((this.canvas.width / 2) - 2 * this.horizontalGridSize) - 0.5 * this.horizontalGridSize;
         this.ctx.rect(positionX, positionY, this.horizontalGridSize * 3, this.horizontalGridSize); // x, y, width, height
@@ -41,7 +41,7 @@ class WarehouseFloorPlan {
 
 
         // Set text styles
-        let fontSize = Math.floor(45 / this.numAisles);
+        let fontSize = Math.floor(45 / this.numColumns);
         this.ctx.font = `${fontSize}px Arial`;
         this.ctx.fillStyle = "black";
         this.ctx.textAlign = "center";
@@ -62,12 +62,12 @@ class WarehouseFloorPlan {
     }
 
     drawStorageShelfRow() {
-        let offset = (this.numAisles * 4 * this.horizontalGridSize) / 2;
+        let offset = (this.numColumns * 3 * this.horizontalGridSize) / 2;
         let startPosition = (this.canvas.width / 2) - offset;
 
         this.normalizedCoordinate.x = startPosition;
 
-        for (let i = 0; i < this.numAisles; i++) {
+        for (let i = 0; i < this.numColumns; i++) {
             this.drawStorageShelf(startPosition, this.startPositionY, this.horizontalGridSize);
             startPosition = startPosition + 3 * this.horizontalGridSize;
         }
@@ -106,9 +106,9 @@ class WarehouseFloorPlan {
         this.ctx.stroke();
     }
 
-    drawStorageShelfFloorPlan(numAisles, numCrossings) {
+    drawStorageShelfFloorPlan(numColumns, numCrossings) {
         this.clearCanvas();
-        this.numAisles = numAisles;
+        this.numColumns = numColumns;
         this.numCrossings = numCrossings;
 
         let marginVertical = 20;
@@ -118,7 +118,7 @@ class WarehouseFloorPlan {
 
         // the grid sizes are dynamically calculated based on the number of aisles and the screen height
         this.verticalGridSize = this.canvas.height / ((numCrossings * 7) + marginVertical);
-        this.horizontalGridSize = this.canvas.width / (numAisles * 4 + marginHorizontal);
+        this.horizontalGridSize = this.canvas.width / (numColumns * 4 + marginHorizontal);
 
         let offset = (numCrossings * 7 * this.verticalGridSize) / 2;
         this.startPositionY = (this.canvas.height / 2) + offset;
@@ -196,12 +196,15 @@ generateLocationTestSetButton.addEventListener("click", function () {
     })
         .then(response => response.json())
         .then(data => {
+            if (data.length === 0) {
+                alert("No data available.");  // Notify user here
+            }
             // store the locations in local storage for later route calculation
             localStorage.setItem("stockLocations", JSON.stringify(data));
 
             // reset the canvas and draw the warehouse floor plan
             wareHouseFloorPlan.clearCanvas();
-            wareHouseFloorPlan.drawStorageShelfFloorPlan(wareHouseFloorPlan.numAisles, wareHouseFloorPlan.numCrossings);
+            wareHouseFloorPlan.drawStorageShelfFloorPlan(wareHouseFloorPlan.numColumns, wareHouseFloorPlan.numCrossings);
 
             // draw the locations on the canvas
             wareHouseFloorPlan.drawPickingMarkers(data);
