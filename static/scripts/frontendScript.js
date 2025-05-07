@@ -32,7 +32,7 @@ class WarehouseFloorPlan {
         let startPositionY = (this.canvas.height / 2) + offset;
         let positionY = startPositionY + 8 * this.verticalGridSize; // this.numCrossings * (this.verticalGridSize * 7);
 
-        let positionX = ((this.canvas.width / 2) - 2 * this.horizontalGridSize) - 0.5 * this.horizontalGridSize;
+        let positionX = (((this.canvas.width / 2) - 2 * this.horizontalGridSize));
         this.ctx.rect(positionX, positionY, this.horizontalGridSize * 3, this.horizontalGridSize); // x, y, width, height
         this.ctx.fillStyle = "lightblue";
         this.ctx.fill(); // Draw the outline
@@ -157,6 +157,28 @@ class WarehouseFloorPlan {
 
         this.ctx.stroke();
     }
+
+    drawWarehouseMst(mst) {
+        this.ctx.strokeStyle = "red"; // Set the line color to red
+        this.ctx.lineWidth = 3;       // Set the line width
+
+        for (let i = 0; i < mst.length; i++) {
+            const [start, end] = mst[i];
+            let offsetX = this.normalizedCoordinate.x + 0.5 * this.horizontalGridSize;
+            let offsetY = this.normalizedCoordinate.y + 0.5 * this.verticalGridSize;
+
+            let startX = (start[0] - 1) * this.horizontalGridSize + offsetX;
+            let startY = (start[1] - 1) * this.verticalGridSize + offsetY;
+            let endX = (end[0] - 1) * this.horizontalGridSize + offsetX;
+            let endY = (end[1] - 1) * this.verticalGridSize + offsetY;
+
+            this.ctx.beginPath();              // Start a new path for each segment
+            this.ctx.moveTo(startX, startY);   // Move to the start point
+            this.ctx.lineTo(endX, endY);       // Draw to the end point
+            this.ctx.stroke();                 // Apply stroke
+        }
+    }
+
 }
 
 
@@ -262,7 +284,11 @@ triggerRouteCalculationButton.addEventListener("click", function () {
         .then(data => {
             // draw the route on the canvas
             console.log(wareHouseFloorPlan.positionPackingTable);
-            wareHouseFloorPlan.drawWarehouseRoute(data);
+            if (data.christofides && data.christofides.length > 0) {
+                wareHouseFloorPlan.drawWarehouseMst(data.christofides);
+            } else {
+                wareHouseFloorPlan.drawWarehouseRoute(data);
+            }
         })
         .catch(error => console.error('Error:', error));
 });

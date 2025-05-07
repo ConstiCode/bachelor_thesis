@@ -1,6 +1,6 @@
 import math
 import heapq
-
+from collections import Counter
 from flask import Flask, render_template, request, jsonify
 import random
 
@@ -97,7 +97,7 @@ def generate_warehouse_grid(num_isles: int, num_rows: int) -> list[list[int]]:
                     grid[y][x] = 0  # 0 means shelf (not walkable)
 
     # mark the packing table as a 1
-    grid[total_rows][total_cols // 2] = 1
+    grid[total_rows][(total_cols // 2) - 1] = 0
 
     return grid
 
@@ -135,8 +135,8 @@ def create_a_star_route(num_isles, num_rows, stock_locations):
             return x - 1, y
 
         # Convert to nearest accessible (aisle) coordinates
-        start = _stock_loc_coordinate_to_route_loc(raw_start, False if i else True)
-        end = _stock_loc_coordinate_to_route_loc(raw_end, True if i + 2 == len(stock_locations) else False)
+        start = _stock_loc_coordinate_to_route_loc(raw_start, False)
+        end = _stock_loc_coordinate_to_route_loc(raw_end, False)
 
         # Use A* to get path between these two
         path_segment = a_star(grid, start, end)
@@ -275,6 +275,74 @@ def generate_test_locations() -> [(int, int)]:
     return jsonify(locations)
 
 
+def _get_mst_weights(locations, num_shelf_cols, num_shelf_rows):
+    edges = []
+    for location in locations:
+        for other_location in locations:
+            if location != other_location:
+                route = (location, other_location)
+                start_loc = (location.get('x'), location.get('y'))
+                end_loc = (other_location.get('x'), other_location.get('y'))
+                weight = len(create_a_star_route(num_shelf_cols, num_shelf_rows, route))
+
+                # Check if the inverted edge already exists
+                if (weight, start_loc, end_loc) not in edges:
+                    edges.append(
+                        (weight, end_loc, start_loc))
+    return edges
+
+
+def _get_prim_mst(edges, start_key, num_loc: int):
+    mst, route = [], []
+    visited = {start_key}
+    while len(mst) < num_loc - 1:
+        candidate_edges = [
+            edge for edge in edges
+            if (edge[1] in visited and edge[2] not in visited) or
+               (edge[2] in visited and edge[1] not in visited)
+        ]
+        if not candidate_edges:
+            break  # No more edges to process
+
+        # Pick the edge with minimum weight
+        next_edge = min(candidate_edges, key=lambda x: x[0])
+        mst.append(next_edge)
+        # Add the new node to visited
+        visited.add(next_edge[1] if next_edge[2] in visited else next_edge[2])
+
+    return mst
+
+
+def _get_odd_nodes(mst):
+    """Get odd degree nodes from the minimum spanning tree."""
+
+    locs = [item for item, count in Counter(inner_tuple for _, *tuples in mst for inner_tuple in tuples).items() if
+            count % 2 != 0]
+    return locs
+
+
+def calc_christofides_heuristic_route(locations: [dict], start_pos: dict, num_shelf_cols: int,
+                                      num_shelf_rows: int) -> [int]:
+    """ Calculates a path through the warehouse using the christofides heuristic. """
+    locations.append(start_pos)
+
+    edges = _get_mst_weights(locations, num_shelf_cols, num_shelf_rows)
+    # use prims algorithm to get the minimum spanning tree
+    mst = _get_prim_mst(edges[1:], edges[0][1], len(locations))
+
+    # get the odd degree nodes
+    odd_nodes = (0, _get_odd_nodes(mst))
+
+    mst.append(odd_nodes)
+    # todo fix this input the whole route in a* and find the way to sort the subroutes beforehand
+
+    route = []
+    for subroute in mst:
+        route.append(create_a_star_route(num_shelf_cols, num_shelf_rows, [{'x': subroute[1], 'y': subroute[2]}]))
+
+    return route
+
+
 @app.route('/calculate-route', methods=['POST'])
 def calculate_route():
     """Calculates the route for the given locations"""
@@ -294,7 +362,7 @@ def calculate_route():
     total_width = number_of_shelf_columns * (shelf_width + aisle_width) + 1
     total_rows = number_of_rows * shelf_height + number_of_rows * aisle_height + 1
 
-    packing_table = {'x': total_width // 2,
+    packing_table = {'x': (total_width // 2) - 1,
                      'y': total_rows}
 
     routes = {}
@@ -302,10 +370,13 @@ def calculate_route():
         if algorithm == 'nearestNeighbor':
             routes['nearestNeighbor'] = calc_nearest_neighbor_heuristic_route(locations, packing_table,
                                                                               number_of_shelf_columns, number_of_rows)
-            routes = routes.get('nearestNeighbor')[1:]
-        elif algorithm == 'greedy':
-            # todo implement this algorithm
-            pass
+            routes = routes.get('nearestNeighbor')  # todo: fix this get extraction when all algorithms are implemented
+        elif algorithm == 'christofides':
+            routes['christofides'] = calc_christofides_heuristic_route(locations, packing_table,
+                                                                       number_of_shelf_columns,
+                                                                       number_of_rows)
+            routes = routes = routes.get('christofides')
+            # todo: fix this get extraction when all algorithms are implemented
         elif algorithm == 'fixed_parameter':
             # todo implement this algorithm
             pass
