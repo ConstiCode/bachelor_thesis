@@ -281,8 +281,8 @@ def _get_mst_weights(locations, num_shelf_cols, num_shelf_rows):
         for other_location in locations:
             if location != other_location:
                 route = (location, other_location)
-                start_loc = (location.get('x'), location.get('y'))
-                end_loc = (other_location.get('x'), other_location.get('y'))
+                start_loc = (location.get('y'), location.get('x'))
+                end_loc = (other_location.get('y'), other_location.get('x'))
                 weight = len(create_a_star_route(num_shelf_cols, num_shelf_rows, route))
 
                 # Check if the inverted edge already exists
@@ -290,6 +290,29 @@ def _get_mst_weights(locations, num_shelf_cols, num_shelf_rows):
                     edges.append(
                         (weight, end_loc, start_loc))
     return edges
+
+
+def _get_a_to_b_weight(a_start, b_end, num_shelf_cols, num_shelf_rows):
+    """
+    Get the weight of the edge between two locations. This is done by calculating the A* route between the two
+    locations and returning the length of that route.
+    """
+
+    def _get_valid_location(location):
+        step_right = grid[location[1]][location[0] + 1]
+        if step_right:
+            return location[1], location[0] + 1
+        else:
+            return location[1], location[0] - 1
+
+    grid = generate_warehouse_grid(num_shelf_cols, num_shelf_rows)
+
+    a_start = _get_valid_location(a_start)
+    b_end = _get_valid_location(b_end)
+
+    route = a_star(grid, a_start, b_end)
+
+    return len(route)
 
 
 def _get_prim_mst(edges, start_key, num_loc: int):
@@ -321,6 +344,40 @@ def _get_odd_nodes(mst):
     return locs
 
 
+def minimum_weight_perfect_matching(odd_nodes, num_shelf_rows, num_shelf_cols):
+    matched = set()
+    matching = []
+
+    for i in range(len(odd_nodes)):
+        if odd_nodes[i] in matched:
+            continue
+        best_dist = float('inf')
+        best_match = None
+        for j in range(i + 1, len(odd_nodes)):
+            if odd_nodes[j] in matched:
+                continue
+            d = _get_mst_weights(
+                [{'x': odd_nodes[i][1], 'y': odd_nodes[i][0]}, {'x': odd_nodes[j][1], 'y': odd_nodes[j][0]}],
+                num_shelf_cols, num_shelf_rows)[0][0]
+            if d < best_dist:
+                best_dist = d
+                best_match = odd_nodes[j]
+        if best_match:
+            matching.append((odd_nodes[i], best_match))
+            matched.add(odd_nodes[i])
+            matched.add(best_match)
+
+    return matching
+
+
+def augment_mst_with_matching(mst, matching, num_shelf_cols, num_shelf_rows):
+    for node1, node2 in matching:
+        weight = _get_mst_weights([{'x': node1[1], 'y': node1[0]}, {'x': node2[1], 'y': node2[0]}], num_shelf_cols,
+                                  num_shelf_rows)[0][0]
+        mst.append((weight, node1, node2))
+    return mst
+
+
 def calc_christofides_heuristic_route(locations: [dict], start_pos: dict, num_shelf_cols: int,
                                       num_shelf_rows: int) -> [int]:
     """ Calculates a path through the warehouse using the christofides heuristic. """
@@ -331,10 +388,12 @@ def calc_christofides_heuristic_route(locations: [dict], start_pos: dict, num_sh
     mst = _get_prim_mst(edges[1:], edges[0][1], len(locations))
 
     # get the odd degree nodes
-    odd_nodes = (0, _get_odd_nodes(mst))
+    odd_nodes = _get_odd_nodes(mst)
 
-    mst.append(odd_nodes)
-    # todo fix this input the whole route in a* and find the way to sort the subroutes beforehand
+    matched_nodes = minimum_weight_perfect_matching(odd_nodes, num_shelf_rows, num_shelf_cols)
+
+    all_nodes = augment_mst_with_matching(mst, matched_nodes, num_shelf_cols, num_shelf_rows)
+
 
     route = []
     for subroute in mst:
