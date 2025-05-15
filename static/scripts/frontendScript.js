@@ -159,13 +159,14 @@ class WarehouseFloorPlan {
     }
 
     drawWarehouseMst(mst) {
-        this.ctx.strokeStyle = "red"; // Set the line color to red
+        this.ctx.strokeStyle = "green   "; // Set the line color to red
         this.ctx.lineWidth = 3;       // Set the line width
+
+        let offsetX = this.normalizedCoordinate.x + 0.5 * this.horizontalGridSize;
+        let offsetY = this.normalizedCoordinate.y + 0.5 * this.verticalGridSize;
 
         for (let i = 0; i < mst.length; i++) {
             const [start, end] = mst[i];
-            let offsetX = this.normalizedCoordinate.x + 0.5 * this.horizontalGridSize;
-            let offsetY = this.normalizedCoordinate.y + 0.5 * this.verticalGridSize;
 
             let startX = (start[0] - 1) * this.horizontalGridSize + offsetX;
             let startY = (start[1] - 1) * this.verticalGridSize + offsetY;
@@ -287,7 +288,7 @@ triggerRouteCalculationButton.addEventListener("click", function () {
             if (data.christofides && data.christofides.length > 0) {
                 wareHouseFloorPlan.drawWarehouseMst(data.christofides);
             } else {
-                wareHouseFloorPlan.drawWarehouseRoute(data);
+                wareHouseFloorPlan.drawWarehouseRoute(data.nearestNeighbor);
             }
         })
         .catch(error => console.error('Error:', error));

@@ -315,24 +315,51 @@ def _get_a_to_b_weight(a_start, b_end, num_shelf_cols, num_shelf_rows):
     return len(route)
 
 
-def _get_prim_mst(edges, start_key, num_loc: int):
-    mst, route = [], []
-    visited = {start_key}
-    while len(mst) < num_loc - 1:
-        candidate_edges = [
-            edge for edge in edges
-            if (edge[1] in visited and edge[2] not in visited) or
-               (edge[2] in visited and edge[1] not in visited)
-        ]
-        if not candidate_edges:
-            break  # No more edges to process
+def _get_prim_mst(edges, start_node, num_nodes):
+    """
+    Computes the Minimum Spanning Tree (MST) of a graph using Prim's algorithm.
 
-        # Pick the edge with minimum weight
-        next_edge = min(candidate_edges, key=lambda x: x[0])
-        mst.append(next_edge)
-        # Add the new node to visited
-        visited.add(next_edge[1] if next_edge[2] in visited else next_edge[2])
+    Args:
+        edges: A list of edges, where each edge is a tuple (weight, node1, node2).
+        start_node: The starting node for Prim's algorithm.
+        num_nodes: The total number of nodes in the graph.
 
+    Returns:
+        A list of edges in the MST, or None if the graph is disconnected.
+    """
+
+    mst = []
+    visited = {start_node}
+    priority_queue = []  # Use a min-heap
+
+    # Add initial edges from the start node to the priority queue
+    for weight, u, v in edges:
+        if u == start_node or v == start_node:
+            heapq.heappush(priority_queue, (weight, u, v))
+
+    while len(mst) < num_nodes - 1:
+        if not priority_queue:
+            return None  # Graph is disconnected
+
+        weight, u, v = heapq.heappop(priority_queue)
+
+        # Only proceed if this edge connects visited -> unvisited
+        if u in visited and v not in visited:
+            next_node = v
+        elif v in visited and u not in visited:
+            next_node = u
+        else:
+            continue  # Edge would form a cycle
+
+        mst.append((weight, u, v))
+        visited.add(next_node)
+
+        # Add new edges from newly visited node
+        for next_weight, next_u, next_v in edges:
+            if next_u == next_node or next_v == next_node:
+                if (next_u in visited and next_v not in visited) or \
+                        (next_v in visited and next_u not in visited):
+                    heapq.heappush(priority_queue, (next_weight, next_u, next_v))
     return mst
 
 
@@ -393,11 +420,9 @@ def calc_christofides_heuristic_route(locations: [dict], start_pos: dict, num_sh
     matched_nodes = minimum_weight_perfect_matching(odd_nodes, num_shelf_rows, num_shelf_cols)
 
     all_nodes = augment_mst_with_matching(mst, matched_nodes, num_shelf_cols, num_shelf_rows)
-
-
     route = []
-    for subroute in mst:
-        route.append(create_a_star_route(num_shelf_cols, num_shelf_rows, [{'x': subroute[1], 'y': subroute[2]}]))
+    for triple in mst:
+        route.append(((triple[1][1], triple[1][0]), (triple[2][1], triple[2][0])))
 
     return route
 
@@ -429,14 +454,13 @@ def calculate_route():
         if algorithm == 'nearestNeighbor':
             routes['nearestNeighbor'] = calc_nearest_neighbor_heuristic_route(locations, packing_table,
                                                                               number_of_shelf_columns, number_of_rows)
-            routes = routes.get('nearestNeighbor')  # todo: fix this get extraction when all algorithms are implemented
-        elif algorithm == 'christofides':
+        if algorithm == 'christofides':
             routes['christofides'] = calc_christofides_heuristic_route(locations, packing_table,
                                                                        number_of_shelf_columns,
                                                                        number_of_rows)
-            routes = routes = routes.get('christofides')
+
             # todo: fix this get extraction when all algorithms are implemented
-        elif algorithm == 'fixed_parameter':
+        if algorithm == 'fixed_parameter':
             # todo implement this algorithm
             pass
 
