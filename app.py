@@ -160,7 +160,7 @@ def calc_nearest_neighbor_heuristic_route(locations: [dict], start_pos: dict, nu
         route.append(_nearest_neighbor(route[-1], remaining_locations))
         remaining_locations.remove(route[-1])
     route.append(start_pos)  # Return to start position
-    grid_route = create_a_star_route(num_shelf_cols, num_shelf_rows, route)
+    grid_route = create_a_star_route(num_shelf_cols, num_shelf_rows, route) # Todo here the actual route can be reduced as the start coordinate of the picking table is added twice: [{'x': 5, 'y': 22}, {'x': 5, 'y': 22}, {'location_number': 78, 'x': 7, 'y': 13}, {'location_number': 18, 'x': 4, 'y': 6}, {'location_number': 10, 'x': 2, 'y': 4}, {'x': 5, 'y': 22}]
     return grid_route
 
 
@@ -181,6 +181,15 @@ def manhattan_distance(a: (int, int), b: (int, int)) -> int:
     :return: Manhattan distance as an integer
     """
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+
+def total_manhattan_distance(route: list[tuple[tuple[int, int], tuple[int, int]]]) -> int:
+    """
+    Calculate the total Manhattan distance of a route defined by edges.
+    :param route: list of edges, where each edge is ((x1, y1), (x2, y2))
+    :return: total Manhattan distance as an integer
+    """
+    return sum(manhattan_distance(route[i], route[i + 1]) for i in range(len(route) - 1))
 
 
 def location_to_grid_tuple(location: int, shelf_columns: int):
@@ -364,7 +373,7 @@ def _get_prim_mst(edges, start_node, num_nodes):
 
 
 def _get_odd_nodes(mst):
-    """Get odd degree nodes from the minimum spanning tree."""
+    """ Get odd degree nodes from the minimum spanning tree. """
 
     locs = [item for item, count in Counter(inner_tuple for _, *tuples in mst for inner_tuple in tuples).items() if
             count % 2 != 0]
@@ -404,6 +413,35 @@ def augment_mst_with_matching(mst, matching, num_shelf_cols, num_shelf_rows):
         mst.append((weight, node1, node2))
     return mst
 
+def create_round_route_from_edges(edges):
+    """
+    Creates a round route from a list of edges.
+    :param edges: List of edges, where each edge is a tuple ((x1, y1), (x2, y2))
+    :return: List of coordinates in the order they should be visited
+    """
+    if not edges:
+        return []
+
+    route = [edges[0][0], edges[0][1]]
+    edges_left = edges[1:]  # edges remaining to process
+
+    while edges_left:
+        current_pos = route[-1]
+        for i, (a, b) in enumerate(edges_left):
+            if current_pos == a:
+                route.append(b)
+                edges_left.pop(i)
+                break
+            elif current_pos == b:
+                route.append(a)
+                edges_left.pop(i)
+                break
+        else:
+            # No connecting edge found — could raise an error or stop
+            break
+
+    return route
+
 
 def calc_christofides_heuristic_route(locations: [dict], start_pos: dict, num_shelf_cols: int,
                                       num_shelf_rows: int) -> [int]:
@@ -424,7 +462,12 @@ def calc_christofides_heuristic_route(locations: [dict], start_pos: dict, num_sh
     for triple in mst:
         route.append(((triple[1][1], triple[1][0]), (triple[2][1], triple[2][0])))
 
-    return route
+    route = create_round_route_from_edges(route)
+
+    grid_route = create_a_star_route(num_shelf_cols, num_shelf_rows,
+                                     [{'x': x, 'y': y} for (x, y) in route])
+
+    return grid_route
 
 
 @app.route('/calculate-route', methods=['POST'])
@@ -452,12 +495,16 @@ def calculate_route():
     routes = {}
     for algorithm in algorithms:
         if algorithm == 'nearestNeighbor':
-            routes['nearestNeighbor'] = calc_nearest_neighbor_heuristic_route(locations, packing_table,
-                                                                              number_of_shelf_columns, number_of_rows)
+            nearest_neighbor_route = calc_nearest_neighbor_heuristic_route(locations, packing_table,
+                                                                           number_of_shelf_columns, number_of_rows)
+            routes['nearestNeighbor'] = {'route': nearest_neighbor_route,
+                                         'length': total_manhattan_distance(nearest_neighbor_route)}
         if algorithm == 'christofides':
-            routes['christofides'] = calc_christofides_heuristic_route(locations, packing_table,
-                                                                       number_of_shelf_columns,
-                                                                       number_of_rows)
+            christofides_route = calc_christofides_heuristic_route(locations, packing_table,
+                                                                   number_of_shelf_columns,
+                                                                   number_of_rows)
+            routes['christofides'] = {'route': christofides_route,
+                                      'length': total_manhattan_distance(christofides_route)}
 
             # todo: fix this get extraction when all algorithms are implemented
         if algorithm == 'fixed_parameter':
@@ -469,3 +516,15 @@ def calculate_route():
 
 if __name__ == '__main__':
     app.run()
+
+
+
+
+
+
+
+
+
+
+
+

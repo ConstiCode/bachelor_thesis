@@ -89,7 +89,7 @@ class WarehouseFloorPlan {
         }
     }
 
-    drawWarehouseRoute(route) {
+    drawWarehouseRoute(route, color) {
         // draw the route that is given in tuples from the backend
         //      - valid aisles are multiples of xStart + or -4 as one shelf is 2 grids wide
         //      - valid columns are multiples of xStart + 0,5 offset and + or minus 6
@@ -101,7 +101,7 @@ class WarehouseFloorPlan {
             this.ctx.lineTo((route[i][0] - 1) * this.horizontalGridSize + offsetX, (route[i][1] - 1) * this.verticalGridSize + offsetY);
             this.ctx.strokeStyle = "red";
         }
-        this.ctx.strokeStyle = "red"; // Set the line color to red
+        this.ctx.strokeStyle = color; // Set the line color to red
         this.ctx.lineWidth = 3;
         this.ctx.stroke();
     }
@@ -250,6 +250,27 @@ generateLocationTestSetButton.addEventListener("click", function () {
         .catch(error => console.error('Error:', error));
 });
 
+function updateRouteLength(data, metersPerTile = 1, walkingSpeedKmh = 5, pickerCostPerHour = 15) {
+    // walkingSpeedKmh to meters per minute
+    const walkingSpeedMPerMin = (walkingSpeedKmh * 1000) / 60;
+
+    const lengths = Object.entries(data)
+        .map(([name, value]) => {
+            const distanceMeters = value * metersPerTile; // convert tiles to meters
+            const timeMinutes = distanceMeters / walkingSpeedMPerMin;
+            const timeMinutesRounded = timeMinutes.toFixed(1);
+            const cost = ((timeMinutes / 60) * pickerCostPerHour).toFixed(2);
+
+            return `${name}: ${value} tiles (~${timeMinutesRounded} min, ~$${cost})`;
+        })
+        .join(" | ");
+
+    document.getElementById("routeLength").textContent = `Overall route lengths → ${lengths}`;
+
+}
+
+
+
 function checkSelected() {
     const checkboxes = document.querySelectorAll('input[name="selections"]:checked');
     let algorithms = Array.from(checkboxes).map(cb => cb.value);
@@ -285,11 +306,19 @@ triggerRouteCalculationButton.addEventListener("click", function () {
         .then(data => {
             // draw the route on the canvas
             console.log(wareHouseFloorPlan.positionPackingTable);
+            let overallLengths = {}
             if (data.christofides && data.christofides.length > 0) {
-                wareHouseFloorPlan.drawWarehouseMst(data.christofides);
-            } else {
-                wareHouseFloorPlan.drawWarehouseRoute(data.nearestNeighbor);
+                wareHouseFloorPlan.drawWarehouseRoute(data.christofides.route, "yellow");
+                overallLengths.christofides = data.christofides.length;
             }
+            if (data.nearestNeighbor && data.nearestNeighbor.length > 0) {
+                wareHouseFloorPlan.drawWarehouseRoute(data.nearestNeighbor.route, "red");
+                overallLengths.nearestNeighbor = data.nearestNeighbor.length; // or some default value
+            }
+            updateRouteLength(overallLengths);
+            // Todo add fixed parameter length when implemented
+
+
         })
         .catch(error => console.error('Error:', error));
 });
