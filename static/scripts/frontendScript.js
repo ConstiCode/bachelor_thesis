@@ -250,24 +250,81 @@ generateLocationTestSetButton.addEventListener("click", function () {
         .catch(error => console.error('Error:', error));
 });
 
-function updateRouteLength(data, metersPerTile = 1, walkingSpeedKmh = 5, pickerCostPerHour = 15) {
+function updateRouteInformation(
+    data,
+    metersPerTile = 1,
+    walkingSpeedKmh = 5,
+    pickerCostPerHour = 15
+) {
     // walkingSpeedKmh to meters per minute
     const walkingSpeedMPerMin = (walkingSpeedKmh * 1000) / 60;
 
-    const lengths = Object.entries(data)
-        .map(([name, value]) => {
-            const distanceMeters = value * metersPerTile; // convert tiles to meters
-            const timeMinutes = distanceMeters / walkingSpeedMPerMin;
-            const timeMinutesRounded = timeMinutes.toFixed(1);
-            const cost = ((timeMinutes / 60) * pickerCostPerHour).toFixed(2);
+    // Collect rows for each algorithm
+    const rows = [];
 
-            return `${name}: ${value} tiles (~${timeMinutesRounded} min, ~$${cost})`;
-        })
-        .join(" | ");
+    if (data.christofides !== undefined) {
+        const distanceMeters = data.christofides * metersPerTile;
+        const timeMinutes = distanceMeters / walkingSpeedMPerMin;
+        const cost = ((timeMinutes / 60) * pickerCostPerHour).toFixed(2);
 
-    document.getElementById("routeLength").textContent = `Overall route lengths → ${lengths}`;
+        rows.push({
+            name: "Christofides",
+            tiles: data.christofides,
+            minutes: timeMinutes.toFixed(1),
+            cost: cost,
+            computation: data.christofidesComputationTime?.toFixed(2) + " ms"
+        });
+    }
 
+    if (data.nearestNeighbor !== undefined) {
+        const distanceMeters = data.nearestNeighbor * metersPerTile;
+        const timeMinutes = distanceMeters / walkingSpeedMPerMin;
+        const cost = ((timeMinutes / 60) * pickerCostPerHour).toFixed(2);
+
+        rows.push({
+            name: "Nearest Neighbor",
+            tiles: data.nearestNeighbor,
+            minutes: timeMinutes.toFixed(1),
+            cost: cost,
+            computation: data.nearestNeighborComputationTime?.toFixed(2) + " ms"
+        });
+    }
+
+    // Build HTML table
+    let tableHtml = `
+        <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
+            <thead>
+                <tr style="background-color: #f0f0f0;">
+                    <th style="border: 1px solid #ccc; padding: 6px;">Algorithm</th>
+                    <th style="border: 1px solid #ccc; padding: 6px;">Length (tiles)</th>
+                    <th style="border: 1px solid #ccc; padding: 6px;">Walking Time (min)</th>
+                    <th style="border: 1px solid #ccc; padding: 6px;">Cost ($)</th>
+                    <th style="border: 1px solid #ccc; padding: 6px;">Computation Time</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    rows.forEach(r => {
+        tableHtml += `
+            <tr>
+                <td style="border: 1px solid #ccc; padding: 6px;">${r.name}</td>
+                <td style="border: 1px solid #ccc; padding: 6px; text-align: right;">${r.tiles}</td>
+                <td style="border: 1px solid #ccc; padding: 6px; text-align: right;">${r.minutes}</td>
+                <td style="border: 1px solid #ccc; padding: 6px; text-align: right;">$${r.cost}</td>
+                <td style="border: 1px solid #ccc; padding: 6px; text-align: right;">${r.computation}</td>
+            </tr>
+        `;
+    });
+
+    tableHtml += `
+            </tbody>
+        </table>
+    `;
+
+    document.getElementById("routeInfo").innerHTML = tableHtml;
 }
+
 
 
 
@@ -306,16 +363,18 @@ triggerRouteCalculationButton.addEventListener("click", function () {
         .then(data => {
             // draw the route on the canvas
             console.log(wareHouseFloorPlan.positionPackingTable);
-            let overallLengths = {}
+            let overallRouteInfo = {}
             if (data.christofides && data.christofides.length > 0) {
                 wareHouseFloorPlan.drawWarehouseRoute(data.christofides.route, "yellow");
-                overallLengths.christofides = data.christofides.length;
+                overallRouteInfo.christofides = data.christofides.length;
+                overallRouteInfo.christofidesComputationTime = data.christofides.computation_time;
             }
             if (data.nearestNeighbor && data.nearestNeighbor.length > 0) {
                 wareHouseFloorPlan.drawWarehouseRoute(data.nearestNeighbor.route, "red");
-                overallLengths.nearestNeighbor = data.nearestNeighbor.length; // or some default value
+                overallRouteInfo.nearestNeighbor = data.nearestNeighbor.length;
+                overallRouteInfo.nearestNeighborComputationTime = data.nearestNeighbor.computation_time;
             }
-            updateRouteLength(overallLengths);
+            updateRouteInformation(overallRouteInfo);
             // Todo add fixed parameter length when implemented
 
 

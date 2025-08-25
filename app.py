@@ -3,6 +3,8 @@ import heapq
 from collections import Counter
 from flask import Flask, render_template, request, jsonify
 import random
+from collections import defaultdict
+import time
 
 app = Flask(__name__)
 
@@ -160,7 +162,8 @@ def calc_nearest_neighbor_heuristic_route(locations: [dict], start_pos: dict, nu
         route.append(_nearest_neighbor(route[-1], remaining_locations))
         remaining_locations.remove(route[-1])
     route.append(start_pos)  # Return to start position
-    grid_route = create_a_star_route(num_shelf_cols, num_shelf_rows, route) # Todo here the actual route can be reduced as the start coordinate of the picking table is added twice: [{'x': 5, 'y': 22}, {'x': 5, 'y': 22}, {'location_number': 78, 'x': 7, 'y': 13}, {'location_number': 18, 'x': 4, 'y': 6}, {'location_number': 10, 'x': 2, 'y': 4}, {'x': 5, 'y': 22}]
+    grid_route = create_a_star_route(num_shelf_cols, num_shelf_rows,
+                                     route)  # Todo here the actual route can be reduced as the start coordinate of the picking table is added twice: [{'x': 5, 'y': 22}, {'x': 5, 'y': 22}, {'location_number': 78, 'x': 7, 'y': 13}, {'location_number': 18, 'x': 4, 'y': 6}, {'location_number': 10, 'x': 2, 'y': 4}, {'x': 5, 'y': 22}]
     return grid_route
 
 
@@ -413,32 +416,47 @@ def augment_mst_with_matching(mst, matching, num_shelf_cols, num_shelf_rows):
         mst.append((weight, node1, node2))
     return mst
 
+
 def create_round_route_from_edges(edges):
     """
-    Creates a round route from a list of edges.
-    :param edges: List of edges, where each edge is a tuple ((x1, y1), (x2, y2))
-    :return: List of coordinates in the order they should be visited
+    Creates a Hamiltonian cycle approximation from the Eulerian multigraph.
+    Uses Hierholzer's algorithm for Eulerian tour, then shortcuts repeats.
+    :param edges: List of edges as ((x1, y1), (x2, y2))
+    :return: List of coordinates in order
     """
     if not edges:
         return []
 
-    route = [edges[0][0], edges[0][1]]
-    edges_left = edges[1:]  # edges remaining to process
+    # Build adjacency list
+    graph = defaultdict(list)
+    for u, v in edges:
+        graph[u].append(v)
+        graph[v].append(u)
 
-    while edges_left:
-        current_pos = route[-1]
-        for i, (a, b) in enumerate(edges_left):
-            if current_pos == a:
-                route.append(b)
-                edges_left.pop(i)
-                break
-            elif current_pos == b:
-                route.append(a)
-                edges_left.pop(i)
-                break
+    # Hierholzer's algorithm for Eulerian circuit
+    start = edges[0][0]
+    stack = [start]
+    circuit = []
+
+    while stack:
+        u = stack[-1]
+        if graph[u]:
+            v = graph[u].pop()
+            graph[v].remove(u)
+            stack.append(v)
         else:
-            # No connecting edge found — could raise an error or stop
-            break
+            circuit.append(stack.pop())
+
+    # Remove duplicates to create Hamiltonian cycle
+    visited = set()
+    route = []
+    for node in circuit[::-1]:  # reverse because Hierholzer gives reverse order
+        if node not in visited:
+            route.append(node)
+            visited.add(node)
+
+    # Make it a round trip by returning to start
+    route.append(route[0])
 
     return route
 
@@ -495,16 +513,22 @@ def calculate_route():
     routes = {}
     for algorithm in algorithms:
         if algorithm == 'nearestNeighbor':
+            start_time = time.perf_counter()
             nearest_neighbor_route = calc_nearest_neighbor_heuristic_route(locations, packing_table,
                                                                            number_of_shelf_columns, number_of_rows)
+            end_time = time.perf_counter()
             routes['nearestNeighbor'] = {'route': nearest_neighbor_route,
-                                         'length': total_manhattan_distance(nearest_neighbor_route)}
+                                         'length': total_manhattan_distance(nearest_neighbor_route),
+                                         'computation_time': (end_time - start_time) * 1000}
         if algorithm == 'christofides':
+            start_time = time.perf_counter()
             christofides_route = calc_christofides_heuristic_route(locations, packing_table,
                                                                    number_of_shelf_columns,
                                                                    number_of_rows)
+            end_time = time.perf_counter()
             routes['christofides'] = {'route': christofides_route,
-                                      'length': total_manhattan_distance(christofides_route)}
+                                      'length': total_manhattan_distance(christofides_route),
+                                      'computation_time': (end_time - start_time) * 1000}
 
             # todo: fix this get extraction when all algorithms are implemented
         if algorithm == 'fixed_parameter':
@@ -516,15 +540,3 @@ def calculate_route():
 
 if __name__ == '__main__':
     app.run()
-
-
-
-
-
-
-
-
-
-
-
-
