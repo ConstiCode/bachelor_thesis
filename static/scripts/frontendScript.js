@@ -356,6 +356,7 @@ triggerRouteCalculationButton.addEventListener("click", function () {
                 y: wareHouseFloorPlan.positionPackingTable.y
             },
             locations: stockLocations,
+            refactor_testing: true,
             algorithms: checkSelected()
         })
     })
