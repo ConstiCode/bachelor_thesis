@@ -4,6 +4,7 @@ import random
 import time
 
 from routes import Christofides
+from routes.fixed_parameter import FixedParameter
 from warehouse.grid import WareHouseGrid
 from routes.nearest_neighbor import NearestNeighbor
 from utils.distances import total_manhattan_distance
@@ -13,6 +14,7 @@ app = Flask(__name__)
 SOLVERS = {
     'nearestNeighbor': NearestNeighbor,
     'christofides': Christofides,
+    'fixedParameter': FixedParameter
 }
 
 
@@ -55,7 +57,6 @@ def calculate_route():
     warehouse = info.get('warehouse_floor_plan')
     number_of_shelf_columns = int(warehouse.get('numColumns'))
     number_of_rows = int(warehouse.get('numCrossings'))
-    refactor_testing = info.get('refactor_testing', False)
 
     shelf_height = 6
     aisle_height = 1

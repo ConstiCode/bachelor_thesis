@@ -1,4 +1,5 @@
 import math
+from utils.distances import manhattan_distance
 
 
 class WareHouseGrid:
@@ -100,3 +101,65 @@ class WareHouseGrid:
         x = shelf_column + shelf_number - 1
         x %= self.num_isles * 3
         return {"location_number": location, "x": x, "y": y}
+
+    def calculate_warehouse_distance(self, location_1, location_2):
+        """
+        Calculates the warehouse distance between two locations in the warehouse grid.
+        :param location_1:
+        :param location_2:
+        :return:
+        """
+        coord_1 = self.location_to_coordinate(location_1)
+        coord_2 = self.location_to_coordinate(location_2)
+
+        route_cord_1 = self._turn_location_coordinate_to_route_loc(coord_1)
+        route_cord_2 = self._turn_location_coordinate_to_route_loc(coord_2)
+
+        # case 1 - same isle x values are the same
+        if route_cord_1[0] == route_cord_2[0] :
+            return manhattan_distance(route_cord_1, route_cord_2)
+
+        elif route_cord_1[1] == route_cord_2[1]:
+            around_top = (7 - route_cord_1[1] % 7)
+            around_bottom = route_cord_1[1] % 7
+            if around_top <= around_bottom:
+                cost = around_top
+                new_start_coordinate = route_cord_1[0], route_cord_1[1] + cost,
+                return manhattan_distance(new_start_coordinate, route_cord_2) + cost
+            else:
+                cost = around_bottom
+                new_start_coordinate = route_cord_1[0], route_cord_1[1] - cost,
+                return manhattan_distance(new_start_coordinate, route_cord_2) + cost
+
+        cost_around_top = (route_cord_1[1] % 7) + (route_cord_2[1] % 7)
+        cost_around_bottom = (7 - route_cord_1[1] % 7) + (7 - route_cord_2[1] % 7)
+
+        # case 2 - different isle
+        # move down from location 1
+        elif route_cord_1[1] < route_cord_2[1]:
+            cost = 7 - (route_cord_2[1] % 7)
+            new_start_coordinate = route_cord_1[0], route_cord_1[1] - cost,
+            return manhattan_distance(new_start_coordinate, route_cord_2) + cost
+
+        # move up from location 1
+        elif route_cord_1[1] > route_cord_2[1]:
+            #top = 7 - (route_cord_2[1] % 7) - route_cord_2[1] % 7
+            #bottom = route_cord_2[1] % 7
+            cost = (route_cord_1[1] % 7)
+            new_start_coordinate = route_cord_1[0], route_cord_1[1] - cost,
+            return manhattan_distance(new_start_coordinate, route_cord_2) + cost
+
+
+
+
+
+
+
+    def _turn_location_coordinate_to_route_loc(self, coordinate) -> tuple[int, int]:
+        x = coordinate.get('x', False)
+        y = coordinate.get('y', False)
+
+        if self.grid[y][x + 1]:
+            return x + 1, y
+        else:
+            return x - 1, y
