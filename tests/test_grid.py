@@ -1,6 +1,6 @@
 import pytest
 from utils.distances import manhattan_distance
-from grid import WareHouseGrid
+from warehouse import WareHouseGrid
 from algorithms.a_star import AStar
 import random
 
@@ -53,6 +53,8 @@ def test_same_location(warehouse):
 
 def test_warehouse_vs_a_star(warehouse):
     test_pairs = [
+        (40,23),
+        (21,47),
         (45,38),
         (13, 15),
         (1, 6),   # same aisle

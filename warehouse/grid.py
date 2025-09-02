@@ -131,22 +131,29 @@ class WareHouseGrid:
                 new_start_coordinate = route_cord_1[0], route_cord_1[1] - cost,
                 return manhattan_distance(new_start_coordinate, route_cord_2) + cost
 
-        cost_around_top = (route_cord_1[1] % 7) + (route_cord_2[1] % 7)
-        cost_around_bottom = (7 - route_cord_1[1] % 7) + (7 - route_cord_2[1] % 7)
+        shelf_row_1 = math.ceil(route_cord_1[1] / 7)
+        shelf_row_2 = math.ceil(route_cord_2[1] / 7)
+
+        if shelf_row_1 == shelf_row_2:
+            cost_around_top = (route_cord_1[1] % 7) + (route_cord_2[1] % 7)
+            cost_around_bottom = (7 - route_cord_1[1] % 7) + (7 - route_cord_2[1] % 7)
+            around_top = cost_around_top <= cost_around_bottom
+            around_bottom = cost_around_top > cost_around_bottom
+        else:
+            around_bottom = shelf_row_1 < shelf_row_2
+            around_top = shelf_row_1 > shelf_row_2
 
         # case 2 - different isle
         # move down from location 1
-        elif route_cord_1[1] < route_cord_2[1]:
-            cost = 7 - (route_cord_2[1] % 7)
+        if around_top:
+            cost = route_cord_1[1] % 7
             new_start_coordinate = route_cord_1[0], route_cord_1[1] - cost,
             return manhattan_distance(new_start_coordinate, route_cord_2) + cost
 
         # move up from location 1
-        elif route_cord_1[1] > route_cord_2[1]:
-            #top = 7 - (route_cord_2[1] % 7) - route_cord_2[1] % 7
-            #bottom = route_cord_2[1] % 7
-            cost = (route_cord_1[1] % 7)
-            new_start_coordinate = route_cord_1[0], route_cord_1[1] - cost,
+        elif around_bottom:
+            cost = (7 - route_cord_1[1] % 7)
+            new_start_coordinate = route_cord_1[0], route_cord_1[1] + cost,
             return manhattan_distance(new_start_coordinate, route_cord_2) + cost
 
 
