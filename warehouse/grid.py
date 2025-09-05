@@ -102,69 +102,52 @@ class WareHouseGrid:
         x %= self.num_isles * 3
         return {"location_number": location, "x": x, "y": y}
 
-    def calculate_warehouse_distance(self, location_1, location_2):
+    def calculate_warehouse_distance(self,
+                                     location_1: tuple[int, int],
+                                     location_2: tuple[int, int]) -> int:
         """
-        Calculates the warehouse distance between two locations in the warehouse grid.
-        :param location_1:
-        :param location_2:
-        :return:
+        Calculates the travel distance between two locations in a warehouse grid
+        with vertical aisles and horizontal access lanes.
+
+        Args:
+            location_1: The starting location identifier.
+            location_2: The ending location identifier.
+
+        Returns:
+            The minimum travel distance between the two locations.
         """
-        coord_1 = self.location_to_coordinate(location_1)
-        coord_2 = self.location_to_coordinate(location_2)
+        # 2. Use more descriptive and consistent variable names
+        start_coord = self._turn_location_coordinate_to_route_loc(location_1)
+        end_coord = self._turn_location_coordinate_to_route_loc(location_2)
 
-        route_cord_1 = self._turn_location_coordinate_to_route_loc(coord_1)
-        route_cord_2 = self._turn_location_coordinate_to_route_loc(coord_2)
+        x1, y1 = start_coord
+        x2, y2 = end_coord
 
-        # case 1 - same isle x values are the same
-        if route_cord_1[0] == route_cord_2[0] :
-            return manhattan_distance(route_cord_1, route_cord_2)
+        # Handle the simplest case: locations are in the same aisle
+        if x1 == x2:
+            return manhattan_distance(start_coord, end_coord)
 
-        elif route_cord_1[1] == route_cord_2[1]:
-            around_top = (7 - route_cord_1[1] % 7)
-            around_bottom = route_cord_1[1] % 7
-            if around_top <= around_bottom:
-                cost = around_top
-                new_start_coordinate = route_cord_1[0], route_cord_1[1] + cost,
-                return manhattan_distance(new_start_coordinate, route_cord_2) + cost
-            else:
-                cost = around_bottom
-                new_start_coordinate = route_cord_1[0], route_cord_1[1] - cost,
-                return manhattan_distance(new_start_coordinate, route_cord_2) + cost
+        # 3. Simplify logic: Calculate costs for both paths and choose the minimum
+        # Instead of complex if/else, we model the two physical choices:
+        #   a) Go to the 'bottom' of the current aisle segment and travel from there.
+        #   b) Go to the 'top' of the current aisle segment and travel from there.
 
-        shelf_row_1 = math.ceil(route_cord_1[1] / 7)
-        shelf_row_2 = math.ceil(route_cord_2[1] / 7)
+        # Path A: Traveling via the 'bottom' of the starting aisle
+        cost_to_bottom_exit = y1 % 7
+        bottom_exit_coord = (x1, y1 - cost_to_bottom_exit)
+        total_dist_via_bottom = cost_to_bottom_exit + manhattan_distance(bottom_exit_coord, end_coord)
 
-        if shelf_row_1 == shelf_row_2:
-            cost_around_top = (route_cord_1[1] % 7) + (route_cord_2[1] % 7)
-            cost_around_bottom = (7 - route_cord_1[1] % 7) + (7 - route_cord_2[1] % 7)
-            around_top = cost_around_top <= cost_around_bottom
-            around_bottom = cost_around_top > cost_around_bottom
-        else:
-            around_bottom = shelf_row_1 < shelf_row_2
-            around_top = shelf_row_1 > shelf_row_2
+        # Path B: Traveling via the 'top' of the starting aisle
+        cost_to_top_exit = 7 - cost_to_bottom_exit
+        top_exit_coord = (x1, y1 + cost_to_top_exit)
+        total_dist_via_top = cost_to_top_exit + manhattan_distance(top_exit_coord, end_coord)
 
-        # case 2 - different isle
-        # move down from location 1
-        if around_top:
-            cost = route_cord_1[1] % 7
-            new_start_coordinate = route_cord_1[0], route_cord_1[1] - cost,
-            return manhattan_distance(new_start_coordinate, route_cord_2) + cost
-
-        # move up from location 1
-        elif around_bottom:
-            cost = (7 - route_cord_1[1] % 7)
-            new_start_coordinate = route_cord_1[0], route_cord_1[1] + cost,
-            return manhattan_distance(new_start_coordinate, route_cord_2) + cost
+        return min(total_dist_via_bottom, total_dist_via_top)
 
 
-
-
-
-
-
-    def _turn_location_coordinate_to_route_loc(self, coordinate) -> tuple[int, int]:
-        x = coordinate.get('x', False)
-        y = coordinate.get('y', False)
+    def _turn_location_coordinate_to_route_loc(self, coordinate: tuple[int, int]) -> tuple[int, int]:
+        x = coordinate[0]
+        y = coordinate[1]
 
         if self.grid[y][x + 1]:
             return x + 1, y

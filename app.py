@@ -1,8 +1,6 @@
-import math
 from flask import Flask, render_template, request, jsonify
 import random
 import time
-
 from routes import Christofides
 from routes.fixed_parameter import FixedParameter
 from warehouse.grid import WareHouseGrid
