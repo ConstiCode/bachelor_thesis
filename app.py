@@ -5,7 +5,6 @@ from routes import Christofides
 from routes.fixed_parameter import FixedParameter
 from warehouse.grid import WareHouseGrid
 from routes.nearest_neighbor import NearestNeighbor
-from utils.distances import total_manhattan_distance
 
 app = Flask(__name__)
 
@@ -85,7 +84,7 @@ def calculate_route():
 
         routes[algorithm] = {
             "route": route,
-            "length": total_manhattan_distance(route),
+            "length": solver.route_length,
             "computation_time": (end_time - start_time) * 1000
         }
 

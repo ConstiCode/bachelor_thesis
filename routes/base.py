@@ -5,6 +5,7 @@ class BaseRoute(ABC):
         self.grid = grid
         self.locations = locations
         self.start_pos = start_pos
+        self.route_length = 0
 
     @abstractmethod
     def compute_route(self):

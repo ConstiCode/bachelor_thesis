@@ -1,6 +1,7 @@
 from .base import BaseRoute
 from algorithms import AStar
-from utils.distances import manhattan_distance
+from utils.distances import total_manhattan_distance
+
 
 
 class NearestNeighbor(BaseRoute):
@@ -15,7 +16,7 @@ class NearestNeighbor(BaseRoute):
             remaining_locations.remove(route[-1])
         route.append(self.start_pos)
 
-
+        self.route_length = total_manhattan_distance([(point['x'], point['y']) for point in route])
         a_star = AStar(self.grid.grid)
         full_route = a_star.calculate_a_star_route(route)
 

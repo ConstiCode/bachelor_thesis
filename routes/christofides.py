@@ -11,6 +11,7 @@ class Christofides(BaseRoute):
     def compute_route(self):
         self.locations.append(self.start_pos)
 
+        # Todo this does not work for 1 location
         # Todo refactor this
         edges = self._get_mst_weights(self.locations, self.grid.num_isles, self.grid.num_rows)
         # use prims algorithm to get the minimum spanning tree
@@ -29,6 +30,8 @@ class Christofides(BaseRoute):
 
         route =  self.create_round_route_from_edges(route)
 
+        self.route_length = sum(self.grid.calculate_warehouse_distance(p1, p2) for p1, p2 in zip(route, route[1:]))
+
         a_star = AStar(self.grid.grid)
         full_route = a_star.calculate_a_star_route([{'x': x, 'y': y} for (x, y) in route])
 
@@ -45,6 +48,7 @@ class Christofides(BaseRoute):
                     end_loc = (other_location.get('y'), other_location.get('x'))
 
                     a_star = AStar(self.grid.grid)
+                    # Todo check if i can use the optimised version here distance calc !!!!!!!!!!!!!!!!!!
                     # Todo check if the weight is correct here. Could it be that the weight should be len(full_route) -1
                     #  as the start position is included in the full route?
                     full_route = a_star.calculate_a_star_route(route)
@@ -187,66 +191,3 @@ class Christofides(BaseRoute):
         route.append(route[0])
 
         return route
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
