@@ -343,6 +343,10 @@ triggerRouteCalculationButton.addEventListener("click", function () {
         alert("Please generate locations first");
         return;
     }
+    if (stockLocations.length === 1 && checkSelected().includes("christofides")) {
+        alert("Christofides algorithm requires at least 2 locations");
+        return;
+    }
 
     fetch('/calculate-route', {
         method: 'POST',

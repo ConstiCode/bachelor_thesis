@@ -23,14 +23,14 @@ class Christofides(BaseRoute):
         # Todo find a proper way to refactor this
         matched_nodes = self.minimum_weight_perfect_matching(odd_nodes, self.grid.num_rows, self.grid.num_isles)
 
-        all_nodes =  self.augment_mst_with_matching(mst, matched_nodes)
+        self.augment_mst_with_matching(mst, matched_nodes)
         route = []
         for triple in mst:
             route.append(((triple[1][1], triple[1][0]), (triple[2][1], triple[2][0])))
 
         route =  self.create_round_route_from_edges(route)
 
-        self.route_length = sum(self.grid.calculate_warehouse_distance(p1, p2) for p1, p2 in zip(route, route[1:]))
+        self.route_length = self.compute_route_length(route)
 
         a_star = AStar(self.grid.grid)
         full_route = a_star.calculate_a_star_route([{'x': x, 'y': y} for (x, y) in route])
