@@ -3,64 +3,57 @@ from algorithms import AStar
 import heapq
 from collections import Counter
 from collections import defaultdict
-
+import networkx as nx
 
 
 class Christofides(BaseRoute):
+    use_blossom = True
 
     def compute_route(self):
         self.locations.append(self.start_pos)
 
-        # Todo this does not work for 1 location
-        # Todo refactor this
-        edges = self._get_mst_weights(self.locations, self.grid.num_isles, self.grid.num_rows)
+        edges = self._get_mst_weights()
         # use prims algorithm to get the minimum spanning tree
         mst = self._get_prim_mst(edges[1:], edges[0][1])
 
         # get the odd degree nodes
-        odd_nodes =  self._get_odd_nodes(mst)
+        odd_nodes = self._get_odd_nodes(mst)
 
-        # Todo find a proper way to refactor this
-        matched_nodes = self.minimum_weight_perfect_matching(odd_nodes, self.grid.num_rows, self.grid.num_isles)
+        matched_nodes = self.minimum_weight_perfect_matching(
+            odd_nodes) if not self.use_blossom else self.minimum_weight_perfect_matching_blossom(odd_nodes)
 
         self.augment_mst_with_matching(mst, matched_nodes)
         route = []
         for triple in mst:
-            route.append(((triple[1][1], triple[1][0]), (triple[2][1], triple[2][0])))
+            route.append(((triple[1][0], triple[1][1]), (triple[2][0], triple[2][1])))
 
-        route =  self.create_round_route_from_edges(route)
+        route = self.create_round_route_from_edges(route)
 
         self.route_length = self.compute_route_length(route)
 
         a_star = AStar(self.grid.grid)
         full_route = a_star.calculate_a_star_route([{'x': x, 'y': y} for (x, y) in route])
 
-
         return full_route
 
-    def _get_mst_weights(self, locations, num_shelf_cols, num_shelf_rows):
+    def _get_mst_weights(self, locations=None):
+        if not locations:
+            locations = self.locations
+
         edges = []
         for location in locations:
             for other_location in locations:
                 if location != other_location:
-                    route = (location, other_location)
-                    start_loc = (location.get('y'), location.get('x'))
-                    end_loc = (other_location.get('y'), other_location.get('x'))
-
-                    a_star = AStar(self.grid.grid)
-                    # Todo check if i can use the optimised version here distance calc !!!!!!!!!!!!!!!!!!
-                    # Todo check if the weight is correct here. Could it be that the weight should be len(full_route) -1
-                    #  as the start position is included in the full route?
-                    full_route = a_star.calculate_a_star_route(route)
-
-                    weight = len(full_route)
+                    start_loc = (location.get('x'), location.get('y'))
+                    end_loc = (other_location.get('x'), other_location.get('y'))
+                    route = [start_loc, end_loc]
+                    weight = self.grid.calculate_warehouse_distance(route[0], route[1])
 
                     # Check if the inverted edge already exists
                     if (weight, start_loc, end_loc) not in edges:
                         edges.append(
                             (weight, end_loc, start_loc))
         return edges
-
 
     def _get_prim_mst(self, edges, start_node):
         """
@@ -117,7 +110,7 @@ class Christofides(BaseRoute):
                 count % 2 != 0]
         return locs
 
-    def minimum_weight_perfect_matching(self, odd_nodes, num_shelf_rows, num_shelf_cols):
+    def minimum_weight_perfect_matching(self, odd_nodes):
         matched = set()
         matching = []
 
@@ -130,8 +123,10 @@ class Christofides(BaseRoute):
                 if odd_nodes[j] in matched:
                     continue
                 d = self._get_mst_weights(
-                    [{'x': odd_nodes[i][1], 'y': odd_nodes[i][0]}, {'x': odd_nodes[j][1], 'y': odd_nodes[j][0]}],
-                    num_shelf_cols, num_shelf_rows)[0][0]
+                    [{'x': odd_nodes[i][0],
+                      'y': odd_nodes[i][1]},
+                     {'x': odd_nodes[j][0],
+                      'y': odd_nodes[j][1]}])[0][0]
                 if d < best_dist:
                     best_dist = d
                     best_match = odd_nodes[j]
@@ -144,8 +139,10 @@ class Christofides(BaseRoute):
 
     def augment_mst_with_matching(self, mst, matching):
         for node1, node2 in matching:
-            weight = self._get_mst_weights([{'x': node1[1], 'y': node1[0]}, {'x': node2[1], 'y': node2[0]}], self.grid.num_isles,
-                                      self.grid.num_rows)[0][0]
+            weight = self._get_mst_weights([{'x': node1[0],
+                                             'y': node1[1]},
+                                            {'x': node2[0],
+                                             'y': node2[1]}])[0][0]
             mst.append((weight, node1, node2))
         return mst
 
@@ -191,3 +188,21 @@ class Christofides(BaseRoute):
         route.append(route[0])
 
         return route
+
+    def minimum_weight_perfect_matching_blossom(self, odd_nodes):
+        """
+        Computes the minimum weight perfect matching for the odd-degree nodes
+        using networkx and the Blossom algorithm.
+        """
+        g = nx.Graph()
+        for i in range(len(odd_nodes)):
+            for j in range(i + 1, len(odd_nodes)):
+                node1 = odd_nodes[i]
+                node2 = odd_nodes[j]
+
+                weight = self.grid.calculate_warehouse_distance(node1, node2)
+                g.add_edge(node1, node2, weight=weight)
+
+        matching_set = nx.min_weight_matching(g, weight='weight')
+
+        return list(matching_set)

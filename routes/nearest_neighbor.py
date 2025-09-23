@@ -1,7 +1,5 @@
 from .base import BaseRoute
 from algorithms import AStar
-from utils.distances import total_manhattan_distance
-
 
 
 class NearestNeighbor(BaseRoute):
