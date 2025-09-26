@@ -18,7 +18,6 @@ class NearestNeighbor(BaseRoute):
         a_star = AStar(self.grid.grid)
         full_route = a_star.calculate_a_star_route(route)
 
-        # Todo here the actual route can be reduced as the start coordinate of the picking table is added twice: [{'x': 5, 'y': 22}, {'x': 5, 'y': 22}, {'location_number': 78, 'x': 7, 'y': 13}, {'location_number': 18, 'x': 4, 'y': 6}, {'location_number': 10, 'x': 2, 'y': 4}, {'x': 5, 'y': 22}]
         return full_route
 
     def _find_nearest_neighbor(self, current_location, locations):
