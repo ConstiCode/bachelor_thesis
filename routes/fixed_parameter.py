@@ -1,21 +1,24 @@
 from routes.base import BaseRoute
 from collections import namedtuple
-
-from collections import namedtuple
+from algorithms import AStar
+from collections import defaultdict
 
 # A state is a tuple of parities and a tuple of component labels.
 # e.g., State(parities=('E', 'U', 'U', '0'), components=(1, 2, 2, None))
-State = namedtuple('State', ['parities', 'components'])
+State = namedtuple('State', ['parities', 'components', 'visited_mask'])
 
 
 class FixedParameter(BaseRoute):
     def __init__(self, grid, locations, start_pos):
-        super().__init__(grid, locations, start_pos)
+        all_locations = locations.copy()
+        all_locations.append(start_pos)
+        super().__init__(grid, all_locations, start_pos)
         self.vertices = []
         self.nodes = []
         self._get_loc_isle_number()
         self._create_base_nodes()
         self.required_nodes = set()
+        self.cell_to_location_map = {}
         for loc in self.locations:
             # Convert location coordinates to grid indices
             grid_x = loc["isle"]
@@ -52,39 +55,37 @@ class FixedParameter(BaseRoute):
     # ================= Main Function =================
 
     def compute_route(self):
-        """
-        Traverse Trough each isle and create all possible vertices. One vertex has number_of_rows + 1 nodes. Create all
-        possible edge combinations.
-        :return:
-        Todo zeichne den scheiß auf und mache dir mal einen richtigen plan du opfer
-        """
         h = self.grid.num_rows + 1
         v = self.grid.num_isles + 1
+
+        # Map grid cells to the index of the required node they contain
+        self.required_locations_map = {loc: i for i, loc in enumerate(self.required_nodes)}
+        num_required = len(self.required_nodes)
 
         # 1. Initialization
         initial_parities = tuple('0' for _ in range(h))
         initial_components = tuple(None for _ in range(h))
-        initial_state = State(parities=initial_parities, components=initial_components)
+        initial_mask = 0  # 000...0 in binary
+        initial_state = State(parities=initial_parities, components=initial_components, visited_mask=initial_mask)
 
-        dp_layers = [{initial_state: 0}]
-
+        # In compute_route function, initialization (Step 1)
+        dp_layers = [{initial_state: {'cost': 0, 'parent': None, 'edge': None, 'num_added': 0}}]
         # 2. Define Edge Processing Order
         edges = self._get_edges_in_processing_order(h, v)
 
         # 3. Main Loop
+        # In compute_route function, the main loop (Step 3)
+
+        # ... inside the main loop ...
         for l, edge in enumerate(edges):
             current_layer_states = dp_layers[l]
             next_layer_states = {}
 
-            for state, cost in current_layer_states.items():
+            for state, data in current_layer_states.items():
+                cost = data['cost']  # <-- Change here
                 # Consider all possible transitions for this edge
-                # Transition 1: Add 0 edges
                 self._update_next_layer(next_layer_states, state, cost, edge, num_added=0)
-
-                # Transition 2: Add 1 edge
                 self._update_next_layer(next_layer_states, state, cost, edge, num_added=1)
-
-                # Transition 3: Add 2 edges
                 self._update_next_layer(next_layer_states, state, cost, edge, num_added=2)
 
             dp_layers.append(next_layer_states)
@@ -92,37 +93,154 @@ class FixedParameter(BaseRoute):
         # 4. Find the Optimal Final Tour
         final_layer = dp_layers[-1]
         min_cost = float('inf')
+        best_final_state = None
 
-        for state, cost in final_layer.items():
-            # A valid final tour must have one connected component and all even degrees
-            # (or be empty if a point is not on the tour) [cite: 286, 289]
+        for state, data in final_layer.items():
             if self._is_valid_final_state(state):
-                if cost < min_cost:
-                    min_cost = cost
+                if data['cost'] < min_cost:
+                    min_cost = data['cost']
+                    best_final_state = state
 
-        return min_cost
+        if best_final_state is None:
+            return None  # Or raise an error if no solution was found
+
+        # Reconstruct the path of edges by backtracking
+        edge_path = self._reconstruct_edge_path(best_final_state, dp_layers)
+
+        # Convert the unordered edges into an ordered list of (x, y) waypoints
+        ordered_locations = self._convert_edges_to_final_route(edge_path)
+
+        # Format for A* and calculate the final detailed path
+        # This now matches the output style of your other algorithms
+        route_for_astar = [{'x': loc['x'], 'y': loc['y']} for loc in ordered_locations]
+
+        a_star = AStar(self.grid.grid)
+        full_route = a_star.calculate_a_star_route(route_for_astar)
+
+        return full_route
 
     # ================= Helper Functions =================
 
+    def _convert_edges_to_final_route(self, edge_path):
+        """
+        Converts the raw edge path from the DP into an ordered list of the
+        original required location objects.
+        """
+        if not edge_path:
+            return []
+
+        # (This part is the same as before)
+        # First, build the detailed tour of (x, y) waypoints
+        # ...
+        coord_edges = []
+        for edge in edge_path:
+            y1, y2 = edge['idx1'] * 7, edge['idx2'] * 7
+            if edge['type'] == 'horizontal':
+                x1, x2 = edge['col'] * 3, (edge['col'] + 1) * 3
+            else:
+                x1, x2 = edge['col'] * 3, edge['col'] * 3
+            coord_edges.append(((x1, y1), (x2, y2)))
+
+        graph = defaultdict(list)
+        for u, v in coord_edges:
+            graph[u].append(v)
+            graph[v].append(u)
+
+        start_node = coord_edges[0][0]
+        stack, circuit = [start_node], []
+        while stack:
+            u = stack[-1]
+            if graph[u]:
+                v = graph[u].pop()
+                graph[v].remove(u)
+                stack.append(v)
+            else:
+                circuit.append(stack.pop())
+        ordered_waypoints = circuit[::-1]
+
+        # ✅ NEW LOGIC STARTS HERE
+        # Now, walk the detailed tour and pick up locations in order
+        ordered_locations = []
+        visited_cells = set()
+
+        for waypoint in ordered_waypoints:
+            x, y = waypoint
+            col, row = x // 3, y // 7
+
+            for dx in [-1, 0]:
+                for dy in [-1, 0]:
+                    cell = (col + dx, row + dy)
+                    if cell in self.cell_to_location_map and cell not in visited_cells:
+                        location = self.cell_to_location_map[cell]
+                        ordered_locations.append(location)
+                        visited_cells.add(cell)
+
+        # Find the start_pos in the generated tour and rotate the list
+        # so that the tour starts and ends at the start_pos.
+        if self.start_pos in ordered_locations:
+            start_index = ordered_locations.index(self.start_pos)
+            # Rotate the list to make start_pos the first element
+            final_ordered_route = ordered_locations[start_index:] + ordered_locations[:start_index]
+            # Add start_pos at the end to complete the loop
+            final_ordered_route.append(self.start_pos)
+            return final_ordered_route
+
+        # Fallback if start_pos wasn't found (should not happen with the __init__ change)
+        return [self.start_pos] + ordered_locations + [self.start_pos]
+
+    def _reconstruct_edge_path(self, final_state, dp_layers):
+        """
+        Backtracks from the final state to reconstruct the list of edges used.
+        """
+        edge_path = []
+        current_state = final_state
+
+        # Iterate backwards through the layers and edges
+        for i in range(len(dp_layers) - 1, 0, -1):
+            layer_data = dp_layers[i][current_state]
+
+            num_added = layer_data['num_added']
+            if num_added > 0:
+                # Add the edge 'num_added' times
+                for _ in range(num_added):
+                    edge_path.append(layer_data['edge'])
+
+            # Move to the parent state in the previous layer
+            current_state = layer_data['parent']
+
+        edge_path.reverse()  # The path is built backwards, so reverse it
+        return edge_path
+
     def _is_valid_final_state(self, state):
-        """
-        Checks if a state in the final layer represents a valid, complete tour.
-        """
-        # 1. Check for even degrees: No 'U' (uneven/odd) parities allowed.
+        num_required = len(self.required_nodes)
+
+        # Case 1: No locations were required. The only valid state is the empty one.
+        if num_required == 0:
+            return state.visited_mask == 0 and \
+                all(p == '0' for p in state.parities) and \
+                all(c is None for c in state.components)
+
+        # Case 2: Locations were required. First, check if all were visited.
+        all_visited_mask = (1 << num_required) - 1
+        if state.visited_mask != all_visited_mask:
+            return False
+
+        # Now, check the graph properties for the valid tour.
+        # 1. No dead ends (all even parities).
         if 'U' in state.parities:
             return False
 
-        # 2. Check for connectedness: There should be at most one component.
-        # We find the first valid component ID and ensure no other component IDs exist.
+        # 2. Must be a single connected tour (exactly one component).
         first_component_id = None
         for comp_id in state.components:
             if comp_id is not None:
                 if first_component_id is None:
                     first_component_id = comp_id
                 elif first_component_id != comp_id:
-                    return False  # Found more than one component, so not connected
+                    return False  # More than one component found.
 
-        return True
+        # If all checks passed and we found a component, it's a valid tour.
+        return first_component_id is not None
 
     def _is_state_valid(self, state):
         """
@@ -179,10 +297,38 @@ class FixedParameter(BaseRoute):
     def _update_next_layer(self, next_layer, old_state, old_cost, edge, num_added):
         """Applies a transition and updates the next DP layer."""
 
-        # edge = (node_idx_1, node_idx_2, length)
+        new_state_tuple = self._apply_transition(old_state, edge, num_added)
+        if new_state_tuple is None:
+            return
 
-        # 1. Calculate the new state based on old_state and the transition
-        new_state = self._apply_transition(old_state, edge, num_added)
+        # Unpack the new parities and components
+        new_parities, new_components = new_state_tuple
+
+        # --- UPDATE THE MASK ---
+        # In _update_next_layer function
+
+        # --- UPDATE THE MASK ---
+        new_mask = old_state.visited_mask
+        if num_added > 0:
+            col, row = edge['col'], edge['idx1']
+
+            if edge['type'] == 'horizontal':
+                # A horizontal edge can cover locations in cells above or below it
+                for y_offset in [-1, 0]:
+                    cell = (col, row + y_offset)
+                    if cell in self.required_locations_map:
+                        loc_index = self.required_locations_map[cell]
+                        new_mask |= (1 << loc_index)
+
+            elif edge['type'] == 'vertical':
+                # A vertical edge can cover locations in cells to its left or right
+                for x_offset in [-1, 0]:
+                    cell = (col + x_offset, row)
+                    if cell in self.required_locations_map:
+                        loc_index = self.required_locations_map[cell]
+                        new_mask |= (1 << loc_index)
+
+        new_state = State(parities=new_parities, components=new_components, visited_mask=new_mask)
 
         # 2. Check if the new state is valid (e.g., non-crossing, etc.) [cite: 292]
         if not self._is_state_valid(new_state):
@@ -193,12 +339,17 @@ class FixedParameter(BaseRoute):
         new_cost = old_cost + transition_cost
 
         # 4. Update the DP table for the next layer
-        if new_state not in next_layer or new_cost < next_layer[new_state]:
-            next_layer[new_state] = new_cost
+        if new_state not in next_layer or new_cost < next_layer[new_state]['cost']:
+            next_layer[new_state] = {
+                'cost': new_cost,
+                'parent': old_state,
+                'edge': edge,
+                'num_added': num_added
+            }
 
     def _apply_transition(self, state, edge, num_added):
         if num_added == 0:
-            return state  # No change for any edge type
+            return state.parities, state.components  # No change for any edge type
 
         parities = list(state.parities)
         components = list(state.components)
@@ -228,34 +379,26 @@ class FixedParameter(BaseRoute):
                 for i, c in enumerate(components):
                     if c == comp2: components[i] = comp1
 
-            return State(parities=tuple(parities), components=tuple(components))
+            return tuple(parities), tuple(components)
 
         # --- Logic for Horizontal Edges (shifting to a new frontier) ---
+
         elif edge['type'] == 'horizontal':
-            # A horizontal transition creates a state for the *next* frontier.
-            # It's simpler: it just carries over the state of a single node.
-            # We start with a blank state for the new frontier.
             new_parities = ['0'] * len(parities)
             new_components = [None] * len(components)
-            idx = edge['idx1']  # idx1 and idx2 are the same for horizontal edges
+            idx = edge['idx1']
 
-            # The node `idx` on the new frontier inherits the state.
-            # Parity update is the same as before.
             if num_added == 1:
                 new_parities[idx] = 'U'
             else:  # num_added == 2
                 new_parities[idx] = 'E'
 
-            new_components[idx] = 1  # Each horizontal connection starts its own new component
+            # This logic might need refinement, but for now, let's assign a component
+            if num_added > 0:
+                new_components[idx] = 1  # Simplified component assignment
 
-            # NOTE: This is a simplified view. A more robust implementation would merge
-            # these new single-node components after all horizontal edges for a column are processed.
-            # For now, this structure is a good starting point.
-
-            # A horizontal edge "consumes" the old state and produces a state for the next frontier.
-            # This means the main loop needs to be slightly adjusted to handle this transition
-            # from a full frontier state to the next. Let's refine the main loop below.
-            pass  # We will adjust the main loop to handle this properly.
+            # Replace 'pass' with the return statement
+            return tuple(new_parities), tuple(new_components)
 
     def _compute_paths(self, start_node, end_node, relevant_y_locs):
         """

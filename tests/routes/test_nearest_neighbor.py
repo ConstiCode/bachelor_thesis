@@ -34,7 +34,7 @@ def test_find_nearest_neighbor():
     assert nearest == location
 
 
-def test_compute_route_orchestration(mocker):
+def test_compute_route_calculation(mocker):
     mock_astar_class = mocker.patch('routes.nearest_neighbor.AStar')
     mock_astar_class.return_value.calculate_a_star_route.return_value = ['mocked', 'final', 'route']
 
