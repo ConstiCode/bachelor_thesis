@@ -52,22 +52,18 @@ class FixedParameter(BaseRoute):
         initial_state = tuple(range(self.locations))
         current_layer = {initial_state: 0}
 
-        # --- THE MAIN LOOP IS DIFFERENT ---
-        # We iterate through AISLES, not individual edges.
-        all_aisles = self.get_all_aisles_in_order()  # e.g., [aisle_1, aisle_2, ...]
+        # Iterate though all the edges of the warehouse in the order vertical then horizontal and left to right,
+        # bottom to top
+        all_aisles = self.get_all_aisles_in_order()
 
         for aisle in all_aisles:
             next_layer = {}
 
-            # Get the terminals (items) located in this specific aisle
-            terminals_in_this_aisle = self.get_terminals_in_aisle(aisle)
+            terminals_in_this_aisle = self._get_terminals_in_aisle(aisle)
 
             for w, cost in current_layer.items():
 
-                # --- THE TRANSITIONS ARE DIFFERENT ---
-                # Instead of "one/zero edge", we use your complex strategies.
-                # This function returns a list of (new_state, transition_cost) tuples.
-                possible_transitions = self.get_aisle_traversal_strategies(w, aisle, terminals_in_this_aisle)
+                possible_transitions = self._get_aisle_traversal_strategies(w, aisle, terminals_in_this_aisle)
 
                 # This is where your six options are generated!
                 for (w_prime, transition_cost) in possible_transitions:
@@ -98,6 +94,137 @@ class FixedParameter(BaseRoute):
 
         return w_opt, min_cost
 
+    def _get_aisle_traversal_strategies(self, w, aisle, terminals_in_aisle):
+        """
+        Given an aisle (edge) and the terminals in that aisle, generates all possible traversal strategies
+        and their associated costs.
+        :param aisle: tuple of two coordinates defining the aisle ((x1, y1), (x2, y2))
+        :param terminals_in_aisle: list of location coordinates that lie on the aisle
+        :return: list of tuples (new_state, cost) for each traversal strategy
+        """
+        # A complete state 'w'
+        current_connectivity, current_degrees = w
+
+        # 1. Strategy Possible outcomes initialized with the "do nothing" option
+        generated_transitions = [(w, 0)]
+
+        start_of_aisle, end_of_aisle = aisle[0], aisle[1]
+
+        # 2. Strategy: Go once through the aisle
+        cost = 8
+        new_degrees = list(current_degrees)
+        new_connectivity = list(current_connectivity)
+        # Update the degrees of the aisle entrances
+        new_degrees[start_of_aisle] += 1
+        new_degrees[end_of_aisle] += 1
+
+        new_connectivity[start_of_aisle] = new_connectivity[end_of_aisle]
+
+        w_prime = (tuple(new_connectivity), tuple(new_degrees))
+        generated_transitions.append((w_prime, cost))
+
+        # 3. Strategy: Go twice through the aisle
+        cost = 16
+        new_degrees = list(current_degrees)
+        new_connectivity = list(current_connectivity)
+        # Update the degrees of the aisle entrances
+        new_degrees[start_of_aisle] += 2
+        new_degrees[end_of_aisle] += 2
+        new_connectivity[start_of_aisle] = new_connectivity[end_of_aisle]
+
+        if terminals_in_aisle:
+            # Todo debug
+            # 4. Strategy: Go to the most distant terminal and back (from start)
+            furthest_terminal = max(terminals_in_aisle, key=lambda loc: abs(loc[1] - start_of_aisle[1]))
+            closest_terminal = min(terminals_in_aisle, key=lambda loc: abs(loc[1] - start_of_aisle[1]))
+            cost = 2 * abs(furthest_terminal[1] - start_of_aisle[1])
+            new_degrees = list(current_degrees)
+            new_connectivity = list(current_connectivity)
+            new_degrees[start_of_aisle] += 2
+            w_prime = (tuple(new_connectivity), tuple(new_degrees))
+            generated_transitions.append((w_prime, cost))
+
+            if furthest_terminal != closest_terminal:
+                # 5. Strategy: Go to the closest terminal and back (from end)
+
+
+        # Example:
+        # connectivity_tuple = (0, 0, 2, 3)  # DSU parent pointers for terminals
+        # degrees_tuple = (1, 1, 0, 0, 2, 0)  # Degrees for aisle entrances 1, 2, 3, 4, 5, 6...
+
+        # Traversal strategies that can always be applied
+        # 1. Do nothing
+        res = [(w, 0)]
+
+        # 2. Go once through the aisle
+        res.append((w, 8))
+
+        # 3. Go twice through the aisle
+        res.append((, 16))
+        # Traversal strategies that depend on terminals in the aisle
+        # 4. Go to the most distant terminal and back (from start)
+        # 5. Split the aisle at the biggest gap between terminals and go to both ends and back
+
+
+
+
+
+
+
+
+
+
+        vertices = []
+        # First option - do nothing
+        start_node.degree, end_node.degree = 0, 0
+        self.vertices.append(Vertex([start_node, end_node], 0))
+
+        # Second option - go once through the aisle
+        start_node.degree, end_node.degree = 1, 1
+        self.vertices.append(Vertex([start_node, end_node], 6))
+
+        # Third option - go twice through the aisle
+        start_node.degree, end_node.degree = 2, 2
+        self.vertices.append(Vertex([start_node, end_node], 12))
+
+        if not relevant_y_locs:
+            return
+
+        # Fourth and fifth option - go to the most distant location and then turn around (both ways)
+        start_node.degree, end_node.degree = 2, 0
+        self.vertices.append(Vertex([start_node, end_node], start_node.compute_furthest_cost(relevant_y_locs)))
+        start_node.degree, end_node.degree = 0, 2
+        self.vertices.append(Vertex([start_node, end_node], end_node.compute_furthest_cost(relevant_y_locs)))
+
+        if not len(relevant_y_locs) >= 2:
+            return vertices
+            # Sixth option - find the biggest gap between two relevant locations and go there and back from each node
+        start_node.degree, end_node.degree = 2, 2
+        gap = start_node.compute_biggest_aisle_split(relevant_y_locs)
+        vertices.append(Vertex([start_node, end_node], (gap[0] + (7 - gap[1])) * 2))
+
+        self.vertices = vertices
+
+    def _get_terminals_in_aisle(self, edge):
+        """
+        Takes an edge defined by its start coordinate and end coordinate and a list of locations and returns all the
+        locations that lie on that edge.
+        :param edge: tuple of two coordinates defining the edge ((x1, y1), (x2, y2))
+        :return: list of location coordinates that lie on the edge
+        """
+        index = 0 if edge[0][0] == edge[1][0] else 1
+        interval = sorted([edge[0][1 - index], edge[1][1 - index]])
+        edge_comparor = edge[0][index]
+        res = []
+        for location in self.locations:
+            self.grid._turn_location_coordinate_to_route_loc((location['x'], location['y'])) # Todo clean up
+            if location[index] != edge_comparor and location[1 - index] not in interval:
+               continue
+            res.append(location)
+        return res
+
+
+
     def apply_transition(self, state, edge):
         """
         Takes a state (connectivity tuple) and an edge, performs a union
@@ -116,7 +243,8 @@ class FixedParameter(BaseRoute):
     def get_all_aisles_in_order(self):
         """
         Generates all valid walkable aisle segments for a given warehouse layout.
-        Returns a list of edges, where each edge is represented by its start and end coordinates.
+        Returns a list of edges, where each edge is represented by its start and end coordinates and is sorted in a
+        alternating manner from left to right, bottom to top.
         """
         num_isles = self.grid.num_isles
         num_rows = self.grid.num_rows
@@ -235,37 +363,3 @@ def get_warehouse_walkable_edges(self, layout_info):
     sorted_edges = sorted(walkable_edges, key=lambda edge: (min(edge[0][1], edge[1][1]), min(edge[0][0], edge[1][0])))
 
     return sorted_edges
-# def get_edge_endpoints(edge):
-#     """Returns the two vertex indices connected by an edge."""
-#     pass
-#
-# def get_edge_length(edge):
-#     """Returns the length of an edge."""
-#     pass
-#
-# def apply_transition(state, edge):
-#     """
-#     Takes a state (connectivity tuple) and an edge, performs a union
-#     operation on the components of the edge's endpoints, and returns
-#     the new state tuple.
-#     """
-#     pass
-#
-# def check_validity(new_state, edge, terminals):
-#     """
-#     Implements the crucial filtering rules from the paper:
-#     1. No cycles are formed.
-#     2. No useless pendant Steiner points are created.
-#     3. Enforces forced connections between adjacent terminals.
-#     4. Ensures no lines exist without passing through a terminal.
-#     Returns True if the new_state is a valid partial tree, False otherwise.
-#     """
-#     pass
-#
-# def is_fully_connected(state, num_terminals):
-#     """
-#     Checks if all terminals in the state belong to a single
-#     connected component. Returns True if connected, False otherwise.
-#     """
-#     pass
-# -----------------------------------------------------------------
