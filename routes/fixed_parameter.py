@@ -73,6 +73,8 @@ class FixedParameter(BaseRoute):
         # --- Corrected Initialization ---
         num_points_of_interest = len(self.id_map)
 
+        visited_locs = []
+
         # Each point starts as its own component
         initial_connectivity = tuple(range(num_points_of_interest))
 
@@ -89,26 +91,25 @@ class FixedParameter(BaseRoute):
         # Iterate though all the edges of the warehouse in the order vertical then horizontal and left to right,
         # bottom to top
         all_walkable_edges = self.get_all_aisles_in_order()
-        index = 0
         for edge in all_walkable_edges:
-            index += 1
             next_layer = {}
 
-            # Todo maybe move this into the _get_aisle_vertical_traversal_strategies function
             # First, handle the "do nothing" transition for all current states
             for w, cost in current_layer.items():
                 if cost < next_layer.get(w, float('inf')):
                     next_layer[w] = cost
 
-            is_horizontal = index % self.grid.num_rows == 0
-            call = self._get_aisle_vertical_traversal_strategies if not is_horizontal else self._get_horizontal_traversal_strategies
+            is_horizontal = edge[0][1] == edge[1][1]
 
             pickings_in_this_aisle = self._get_picking_locations_on_edge(edge)
+            visited_locs += pickings_in_this_aisle
+
             for w, cost in current_layer.items():
-                possible_transitions = call(w, edge, pickings_in_this_aisle)
+                possible_transitions = self._get_aisle_traversal_strategies(w, edge, pickings_in_this_aisle,
+                                                                            is_horizontal)
                 for (w_prime, transition_cost) in possible_transitions:
                     new_cost = cost + transition_cost
-                    if self.check_validity(w_prime):
+                    if self.check_validity(w_prime, visited_locs):
                         if new_cost < next_layer.get(w_prime, float('inf')):
                             next_layer[w_prime] = new_cost
 
@@ -161,50 +162,35 @@ class FixedParameter(BaseRoute):
         # If the loop completes, all points share the same representative.
         return True
 
-    def check_validity(self, w):
+    def check_validity(self, w, visited_locs):
         """
         Checks if a given state 'w' represents a valid partial tour.
         This function prunes invalid branches from the search space.
 
         Args:
             w (tuple): The state tuple (connectivity, degrees) to check.
+            visited_locs (list): List of picking locations in the current aisle.
 
         Returns:
             bool: True if the state is valid, False otherwise.
         """
-        connectivity, degrees = w
+        # Todo verstehen
+        connectivity, degrees, visited_locations = w
 
-        # --- Rule 1: Degree Constraint ---
-        # The 'state_degree' at any point (terminal or crossing) cannot exceed 2.
-        # - Degree 0: Path has not visited this point yet.
-        # - Degree 1: Path passes through this point (one open end).
-        # - Degree 2: Path uses this point as a U-turn (no open ends).
-        # A degree of 3 or more is impossible for a single, non-overlapping path.
-        for degree in degrees:
-            if degree > 2:
-                return False
-
-        # --- Rule 2: (Advanced) Premature Cycle Detection ---
-        # This check prevents forming a closed loop of terminals before all terminals
-        # have been collected. This is a more complex check. Fortunately, the
-        # feasibility checks in `_get_aisle_traversal_strategies` (e.g., `if current_degrees[start_id] == 0`)
-        # are the primary defense against creating invalid path structures.
-        # The degree check above is the most essential guardrail.
-
-        # If all checks pass, the state is considered a valid partial tour.
+        # If there is a state where there are unvisited locations that are in the isle, prune it.
+        if sorted(visited_locs) != sorted(visited_locations):
+            return False
         return True
 
-    def _get_horizontal_traversal_strategies(self, w, aisle, terminals_in_this_aisle):
-        pass
-
-    def _get_aisle_vertical_traversal_strategies(self, w, aisle, picking_locations_in_this_aisle):
+    def _get_aisle_traversal_strategies(self, w, aisle, picking_locations_in_this_aisle, horizontal=False):
         """
         Given an aisle (edge) and the terminals in that aisle, generates all possible traversal strategies
-        and their associated costs.
+        and their associated costs when the aisle is vertical.
         :param aisle: tuple of two coordinates defining the aisle ((x1, y1), (x2, y2))
         :param picking_locations_in_this_aisle: list of location coordinates that lie on the aisle
         :return: list of tuples (new_state, cost) for each traversal strategy
         """
+        # Todo test this for the first horizontal aisle
         generated_transitions = []
 
         # 2 . Strategy: Pass Through Aisle --> top to bottom
@@ -216,6 +202,10 @@ class FixedParameter(BaseRoute):
                                                                                picking_locations_in_this_aisle,
                                                                                there_and_back=True)
         generated_transitions.append(pass_through_and_back_state)
+
+        # For the horizontal aisles, we only consider these two strategies
+        if horizontal:
+            return generated_transitions
 
         if not picking_locations_in_this_aisle:
             return generated_transitions
@@ -295,7 +285,7 @@ class FixedParameter(BaseRoute):
 
         call = max if not bottom_to_top else min
         furthest_picking = call(picking_locations_in_this_aisle, key=lambda loc: loc[1])
-        cost = 2 * furthest_picking[1]
+        cost = 2 * furthest_picking[1] if not bottom_to_top else 2 * (self.get_edge_length(aisle) - furthest_picking[1])
         crossing_id = self.id_map[aisle[0]]
 
         new_degrees[crossing_id] += 2  # Start at that crossing and back
@@ -422,31 +412,27 @@ class FixedParameter(BaseRoute):
     def get_all_aisles_in_order(self):
         """
         Generates all valid walkable aisle segments for a given warehouse layout.
-        Returns a list of edges, where each edge is represented by its start and end coordinates and is sorted in a
+        Returns a list of edges, where each edge is represented by its start and end coordinates and is sorted in an
         alternating manner from left to right, bottom to top.
         """
         num_isles = self.grid.num_isles
         num_rows = self.grid.num_rows
+        all_edges = []
 
-        walkable_edges = []
+        # Iterate through the grid from left to right, aisle by aisle.
+        for isle in range(num_isles + 1):
+            for row in range(num_rows):
+                start_node = (isle * 3, row * 7)
+                end_node = (isle * 3, (row + 1) * 7)
+                all_edges.append((start_node, end_node))
 
-        # 1. Generate Vertical Aisle Edges
-        for isle in range(num_isles):
-            for row in range(num_rows - 1):
-                coordinate = isle * 3, row * 7
-                coordinate_2 = isle * 3, (row + 1) * 7
-                walkable_edges.append((coordinate, coordinate_2))
+            if isle < num_isles:
+                for row in range(num_rows + 1):
+                    start_node = (isle * 3, row * 7)
+                    end_node = ((isle + 1) * 3, row * 7)
+                    all_edges.append((start_node, end_node))
 
-        # 2. Generate Horizontal Cross-Aisle Edges
-        for row in range(num_rows):
-            for isle in range(num_isles - 1):
-                coordinate = isle * 3, row * 7
-                coordinate_2 = (isle + 1) * 3, row * 7
-                walkable_edges.append((coordinate, coordinate_2))
-        sorted_edges = sorted(walkable_edges,
-                              key=lambda edge: (min(edge[0][1], edge[1][1]), min(edge[0][0], edge[1][0])))
-
-        return sorted_edges
+        return all_edges
 
 
 class Vertex:
