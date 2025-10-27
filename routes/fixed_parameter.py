@@ -1,11 +1,4 @@
 from routes.base import BaseRoute
-from collections import namedtuple
-from algorithms import AStar
-from collections import defaultdict
-
-# A state is a tuple of parities and a tuple of component labels.
-# e.g., State(parities=('E', 'U', 'U', '0'), components=(1, 2, 2, None))
-State = namedtuple('State', ['parities', 'components', 'visited_mask'])
 
 
 class FixedParameter(BaseRoute):
@@ -16,7 +9,6 @@ class FixedParameter(BaseRoute):
 
     def _create_id_map(self):
         """
-        Todo check if i actually need this
         Dynamically generates a mapping from coordinates to unique integer IDs for all
         points of interest (terminals, depot, and aisle crossings).
         Example:
@@ -70,7 +62,6 @@ class FixedParameter(BaseRoute):
             - The minimum cost (total length) of the Steiner Tree.
             Returns (None, float('inf')) if no solution is found.
         """
-        # --- Corrected Initialization ---
         num_points_of_interest = len(self.id_map)
 
         visited_locs = []
@@ -90,28 +81,27 @@ class FixedParameter(BaseRoute):
 
         # Iterate though all the edges of the warehouse in the order vertical then horizontal and left to right,
         # bottom to top
+        # Todo set the visited locs also into the connectivity so the connectivity can be checked later on
         all_walkable_edges = self.get_all_aisles_in_order()
-        for edge in all_walkable_edges:
+        for i in range(len(all_walkable_edges)):
             next_layer = {}
 
-            # First, handle the "do nothing" transition for all current states
-            for w, cost in current_layer.items():
-                if cost < next_layer.get(w, float('inf')):
-                    next_layer[w] = cost
+            edge = all_walkable_edges[i]
+
+            pickings_in_this_aisle = self._get_picking_locations_on_edge(edge)
 
             is_horizontal = edge[0][1] == edge[1][1]
 
-            pickings_in_this_aisle = self._get_picking_locations_on_edge(edge)
             visited_locs += pickings_in_this_aisle
 
             for w, cost in current_layer.items():
-                possible_transitions = self._get_aisle_traversal_strategies(w, edge, pickings_in_this_aisle,
+                possible_transitions = self._get_aisle_traversal_strategies(w, cost, edge, pickings_in_this_aisle,
                                                                             is_horizontal)
                 for (w_prime, transition_cost) in possible_transitions:
-                    new_cost = cost + transition_cost
-                    if self.check_validity(w_prime, visited_locs):
-                        if new_cost < next_layer.get(w_prime, float('inf')):
-                            next_layer[w_prime] = new_cost
+                    if self.check_validity(i, w_prime, visited_locs, is_horizontal):
+
+                        if transition_cost < next_layer.get(w_prime, float('inf')):
+                            next_layer[w_prime] = transition_cost
 
             current_layer = next_layer
 
@@ -122,7 +112,7 @@ class FixedParameter(BaseRoute):
         # The optimal tree is the cheapest state where all terminals are connected.
         for final_state, final_cost in current_layer.items():
             final_connectivity = final_state[0]
-            if is_fully_connected(final_connectivity, num_terminals):
+            if self._is_fully_connected(final_connectivity, num_terminals):
                 if final_cost < min_cost:
                     min_cost = final_cost
                     w_opt = final_state
@@ -162,7 +152,7 @@ class FixedParameter(BaseRoute):
         # If the loop completes, all points share the same representative.
         return True
 
-    def check_validity(self, w, visited_locs):
+    def check_validity(self, index, w, visited_locs, horizontal):
         """
         Checks if a given state 'w' represents a valid partial tour.
         This function prunes invalid branches from the search space.
@@ -170,19 +160,27 @@ class FixedParameter(BaseRoute):
         Args:
             w (tuple): The state tuple (connectivity, degrees) to check.
             visited_locs (list): List of picking locations in the current aisle.
+            horizontal (bool): Indicates if the current aisle is horizontal.
+            index: The index of the current aisle being processed.
 
         Returns:
             bool: True if the state is valid, False otherwise.
         """
-        # Todo verstehen
+        # Todo ergänzen
         connectivity, degrees, visited_locations = w
+
+        # 1. Degree Constraint: No vertex should have an odd degree todo maybe calculate in outer loop
+        if horizontal:
+            current_degree_index = index - self.grid.num_rows
+            if degrees[current_degree_index] % 2 != 0:
+                return False
 
         # If there is a state where there are unvisited locations that are in the isle, prune it.
         if sorted(visited_locs) != sorted(visited_locations):
             return False
         return True
 
-    def _get_aisle_traversal_strategies(self, w, aisle, picking_locations_in_this_aisle, horizontal=False):
+    def _get_aisle_traversal_strategies(self, w, cost, aisle, picking_locations_in_this_aisle, horizontal=False):
         """
         Given an aisle (edge) and the terminals in that aisle, generates all possible traversal strategies
         and their associated costs when the aisle is vertical.
@@ -193,12 +191,16 @@ class FixedParameter(BaseRoute):
         # Todo test this for the first horizontal aisle
         generated_transitions = []
 
+        # 1. Strategy: Do Nothing
+        if not picking_locations_in_this_aisle:
+            generated_transitions.append((w, cost))
+
         # 2 . Strategy: Pass Through Aisle --> top to bottom
-        pass_through_state = self._get_picking_aisle_transition_state(w, aisle, picking_locations_in_this_aisle)
+        pass_through_state = self._get_picking_aisle_transition_state(w, cost, aisle, picking_locations_in_this_aisle)
         generated_transitions.append(pass_through_state)
 
         # 3. Strategy: Pass Through Aisle 2 times --> top to bottom and back
-        pass_through_and_back_state = self._get_picking_aisle_transition_state(w, aisle,
+        pass_through_and_back_state = self._get_picking_aisle_transition_state(w, cost,aisle,
                                                                                picking_locations_in_this_aisle,
                                                                                there_and_back=True)
         generated_transitions.append(pass_through_and_back_state)
@@ -211,8 +213,8 @@ class FixedParameter(BaseRoute):
             return generated_transitions
 
         # 4. Strategy: Pass To the furthest location from the current crossing --> to picking and back
-        furthest_from_top = self._get_to_picking_and_back_states(w, aisle, picking_locations_in_this_aisle)
-        furthest_from_bottom = self._get_to_picking_and_back_states(w, (aisle[1], aisle[0]),
+        furthest_from_top = self._get_to_picking_and_back_states(w, cost, aisle, picking_locations_in_this_aisle)
+        furthest_from_bottom = self._get_to_picking_and_back_states(w, cost, (aisle[1], aisle[0]),
                                                                     picking_locations_in_this_aisle, True)
         generated_transitions.append(furthest_from_top)
         generated_transitions.append(furthest_from_bottom)
@@ -221,7 +223,7 @@ class FixedParameter(BaseRoute):
             return generated_transitions
 
         # 5. Strategy: Split the picking locations in the aisle and return
-        picking_isle_split = self._get_picking_isle_split_states(w, aisle, picking_locations_in_this_aisle)
+        picking_isle_split = self._get_picking_isle_split_states(w, cost, aisle, picking_locations_in_this_aisle)
         generated_transitions.append(picking_isle_split)
 
         return generated_transitions
@@ -266,7 +268,7 @@ class FixedParameter(BaseRoute):
         # Return the new, immutable connectivity state
         return tuple(parents)
 
-    def _get_to_picking_and_back_states(self, w, aisle, picking_locations_in_this_aisle, bottom_to_top=False):
+    def _get_to_picking_and_back_states(self, w, cost, aisle, picking_locations_in_this_aisle, bottom_to_top=False):
         """
         Helper function to genrate states for going to the furthest picking location in an aisle and back.
         There are two states are generated here, one for each direction (start to end and end to start) as this
@@ -285,14 +287,17 @@ class FixedParameter(BaseRoute):
 
         call = max if not bottom_to_top else min
         furthest_picking = call(picking_locations_in_this_aisle, key=lambda loc: loc[1])
-        cost = 2 * furthest_picking[1] if not bottom_to_top else 2 * (self.get_edge_length(aisle) - furthest_picking[1])
+        extension_cost = 2 * furthest_picking[1] if not bottom_to_top else 2 * (self.get_edge_length(aisle) - furthest_picking[1])
+        cost += extension_cost
         crossing_id = self.id_map[aisle[0]]
 
         new_degrees[crossing_id] += 2  # Start at that crossing and back
+        new_visited_set = set(visited_picking_locations).union(set(picking_locations_in_this_aisle))
+        final_visited_tuple = tuple(sorted(list(new_visited_set)))
 
-        return (tuple(current_connectivity), tuple(new_degrees), tuple(picking_locations_in_this_aisle)), cost
+        return (current_connectivity, tuple(new_degrees), final_visited_tuple), cost
 
-    def _get_picking_isle_split_states(self, w, aisle, picking_locations_in_this_aisle):
+    def _get_picking_isle_split_states(self, w, cost, aisle, picking_locations_in_this_aisle):
         """
         Helper function that calculates the biggest split in the picking locations in an aisle and returns the according
         state.
@@ -310,22 +315,24 @@ class FixedParameter(BaseRoute):
         crossing_start_id = self.id_map[aisle[0]]
         crossing_end_id = self.id_map[aisle[1]]
 
-        # Todo test this
         furthest_pair = self.compute_biggest_aisle_split(
             [loc[1] for loc in picking_locations_in_this_aisle])
+
+        new_visited_set = set(visited_picking_locations).union(set(picking_locations_in_this_aisle))
+        final_visited_tuple = tuple(sorted(list(new_visited_set)))
 
         if not furthest_pair:
             return None
 
-        cost = 2 * (furthest_pair[1] - furthest_pair[0])
+        extension_cost = 14 - (2 * abs(furthest_pair[1] - furthest_pair[0]))
+        cost += extension_cost
 
         new_degrees[crossing_start_id] += 2
         new_degrees[crossing_end_id] += 2
 
-        return (tuple(current_connectivity), tuple(new_degrees),
-                tuple(picking_locations_in_this_aisle)), cost
+        return (current_connectivity, tuple(new_degrees), final_visited_tuple), cost
 
-    def _get_picking_aisle_transition_state(self, w, aisle, picking_locations_in_this_aisle, there_and_back=False):
+    def _get_picking_aisle_transition_state(self, w, cost, aisle, picking_locations_in_this_aisle, there_and_back=False):
         """
         Helper function that calculates the state for going through an isle once.
         :param w: list of current states
@@ -341,10 +348,12 @@ class FixedParameter(BaseRoute):
         start_id = self.id_map[start_coords]
         end_id = self.id_map[end_coords]
 
-        cost = self.get_edge_length(aisle)
+        extension_cost = self.get_edge_length(aisle)
 
         if there_and_back:
-            cost *= 2
+            extension_cost *= 2
+
+        cost += extension_cost
 
         # State Update:
         new_degrees = list(current_degrees)
@@ -354,7 +363,12 @@ class FixedParameter(BaseRoute):
         # Connect everything: the two entrances and all terminals inside the aisle
         ids_to_merge = [start_id, end_id]
         new_connectivity = self._union_all_components(current_connectivity, ids_to_merge)
-        return (new_connectivity, tuple(new_degrees), tuple(picking_locations_in_this_aisle)), cost
+
+        # add the picking locations to the visited picking locations
+        new_visited_set = set(visited_picking_locations).union(set(picking_locations_in_this_aisle))
+        final_visited_tuple = tuple(sorted(list(new_visited_set)))
+
+        return (new_connectivity, tuple(new_degrees), final_visited_tuple), cost
 
     def _get_picking_locations_on_edge(self, edge):
         """
@@ -394,15 +408,6 @@ class FixedParameter(BaseRoute):
 
         return biggest_gap_pair
 
-    def apply_transition(self, state, edge):
-        """
-        Takes a state (connectivity tuple) and an edge, performs a union
-        operation on the components of the edge's endpoints, and returns
-        the new state tuple.
-        """
-
-        return state
-
     def get_edge_length(self, edge):
         """Returns the length of an edge. Where the edge length is denoted as the Manhattan distance between its two endpoints."""
         x1, y1 = edge[0]
@@ -433,81 +438,3 @@ class FixedParameter(BaseRoute):
                     all_edges.append((start_node, end_node))
 
         return all_edges
-
-
-class Vertex:
-    """
-    A vertex describes a number of nodes in a graph, that are on a border of a split. The graph is split to find optimal
-    subroutes.
-    """
-
-    def __init__(self, nodes, cost):
-        self.nodes = nodes
-        self.cost = cost
-
-
-class Node:
-    """
-    A node describes a location in the warehouse. It contains the location itself and the edges to other nodes.
-    """
-
-    def __init__(self, x, y, degree):
-        self.x = x
-        self.y = y
-        self.degree = degree
-
-    def is_odd(self):
-        return self.degree % 2 == 1
-
-    def compute_furthest_cost(self, y_values):
-        """
-        Returns the cost to travel to a given y value from the current node.
-        :param y_values:
-        :return:
-        """
-        return max((abs(self.y - y) * 2 for y in y_values), default=0)
-
-
-# =====================================================================================================================
-
-# ASSUMED HELPER FUNCTIONS (You would need to implement these)
-# -----------------------------------------------------------------
-def get_warehouse_walkable_edges(self, layout_info):
-    """
-    Generates all valid walkable aisle segments for a given warehouse layout.
-    Returns a list of edges, where each edge is represented by its start and end coordinates.
-    """
-    num_isles = self.grid.num_isles
-    num_rows = self.grid.num_rows
-
-    walkable_edges = []
-
-    # 1. Generate Vertical Aisle Edges
-    aisle_columns = [(1, 2), (3, 4), (5, 6)]  # Example based on your layout
-    shelf_rows_top = range(1, 7)
-    shelf_rows_bottom = range(8, 14)
-
-    for col1, col2 in aisle_columns:
-        # Create edges for the top shelf block
-        for row in shelf_rows_top:
-            # Add the edge representing the path between shelves at this row
-            # e.g., walkable_edges.append( ((col1_x, row_y), (col2_x, row_y)) )
-            pass
-        # Create edges for the bottom shelf block
-        for row in shelf_rows_bottom:
-            # Add the edge
-            pass
-
-    # 2. Generate Horizontal Cross-Aisle Edges
-    cross_aisle_rows = [0, 7, 14]  # Representing top, middle, and bottom
-
-    for row_y in cross_aisle_rows:
-        # Create edges connecting the entrances of the vertical aisles
-        # e.g., walkable_edges.append( ((aisle1_x, row_y), (aisle2_x, row_y)) )
-        pass
-
-    # The list should be sorted, as required by the sweep-line algorithm
-    # (e.g., from bottom to top, left to right)
-    sorted_edges = sorted(walkable_edges, key=lambda edge: (min(edge[0][1], edge[1][1]), min(edge[0][0], edge[1][0])))
-
-    return sorted_edges
