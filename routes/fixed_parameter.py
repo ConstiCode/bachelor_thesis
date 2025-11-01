@@ -90,6 +90,7 @@ class FixedParameter(BaseRoute):
             pickings_in_this_aisle = self._get_picking_locations_on_edge(edge)
 
             is_horizontal = edge[0][1] == edge[1][1]
+            last_edge = edge == all_walkable_edges[len(all_walkable_edges)-1]
 
             visited_locs += pickings_in_this_aisle
 
@@ -97,7 +98,7 @@ class FixedParameter(BaseRoute):
                 possible_transitions = self._get_aisle_traversal_strategies(w, cost, edge, pickings_in_this_aisle,
                                                                             is_horizontal)
                 for (w_prime, transition_cost) in possible_transitions:
-                    if self.check_validity(edge, w_prime, visited_locs, is_horizontal):
+                    if self.check_validity(edge, w_prime, visited_locs, is_horizontal, last_edge):
 
                         if transition_cost < next_layer.get(w_prime, float('inf')):
                             next_layer[w_prime] = transition_cost
@@ -116,7 +117,9 @@ class FixedParameter(BaseRoute):
                     min_cost = final_cost
                     w_opt = final_state
 
-        return w_opt, min_cost
+        res = w_opt, min_cost
+
+        return res
 
     def _is_fully_connected(self, connectivity, point_ids_to_check):
         """
@@ -131,6 +134,13 @@ class FixedParameter(BaseRoute):
         Returns:
             bool: True if all points are connected, False otherwise.
         """
+
+        # Quick check: If all point IDs are the same, they are trivially connected.
+        #subtour_id = point_ids_to_check[0]
+        #for point_id in point_ids_to_check[1:]:
+        #    if subtour_id != point_id:
+        #        return False
+
         # If there's one or zero points to connect, they are trivially connected.
         if len(point_ids_to_check) <= 1:
             return True
@@ -151,7 +161,7 @@ class FixedParameter(BaseRoute):
         # If the loop completes, all points share the same representative.
         return True
 
-    def check_validity(self, current_edge, w, visited_locs, horizontal):
+    def check_validity(self, current_edge, w, visited_locs, horizontal, last_edge):
         """
         Checks if a given state 'w' represents a valid partial tour.
         This function prunes invalid branches from the search space.
@@ -161,11 +171,15 @@ class FixedParameter(BaseRoute):
             visited_locs (list): List of picking locations in the current aisle.
             horizontal (bool): Indicates if the current aisle is horizontal.
             current_edge: The tuple representing the current aisle being processed.
+            last_edge: The tuple representing the last aisle being processed.
 
         Returns:
             bool: True if the state is valid, False otherwise.
         """
         connectivity, degrees = w
+        if last_edge:
+            if any(degree % 2 != 0 for degree in degrees):
+                return False
 
         # 1: Location Constraint: All the locations in the current edge must be visited.
         location_ids = sorted([self.id_map[loc] for loc in visited_locs])
@@ -351,7 +365,7 @@ class FixedParameter(BaseRoute):
         end_id = self.id_map[end_coords]
         location_ids = [self.id_map[loc] for loc in picking_locations_in_this_aisle]
 
-        vertices_in_aisle = location_ids + [start_id, end_id]
+        vertices_in_aisle = [start_id, end_id]
 
         extension_cost = self.get_edge_length(aisle)
 
@@ -363,8 +377,14 @@ class FixedParameter(BaseRoute):
         # State Update:
         new_degrees = list(current_degrees)
 
+        # Location degrees need an update of 2 as they have 2 incident edges
+        for location in location_ids:
+            new_degrees[location] += 2 if not there_and_back else 4
+
         for vertex_id in vertices_in_aisle:
             new_degrees[vertex_id] += 1 if not there_and_back else 2
+
+        vertices_in_aisle += location_ids
 
         # Connect everything: the two entrances and all terminals inside the aisle
         new_connectivity = self._union_all_components(current_connectivity, vertices_in_aisle)
