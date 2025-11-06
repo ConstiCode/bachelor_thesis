@@ -141,7 +141,7 @@ class FixedParameter(BaseRoute):
         # Get the representative int for the dummy location so we can trace all connections from there
         representation_int = connections[self.id_map[visited_locs[0]]]
         res = []
-        overall_distortion = 0
+        visited = 0
 
         for i in range(len(connections)):
             if connections[i] != representation_int:
@@ -150,26 +150,39 @@ class FixedParameter(BaseRoute):
             current_loc = self._rev_id_map[i]
 
             # Calculate if there is a location existing below
-            below_exists = self._rev_id_map.get(i + 1, None)
+            below_exists = None
+            if current_loc[1] < self.grid.num_rows * 7:
+                below_exists = self._rev_id_map.get(i + 1, None)
 
-            # Calculate if there is a location existing to the right
-            right_exists = None
+            # Calculate if there is a location existing to the left
+            left_exists = None
 
             is_picking_location = current_loc in visited_locs
             if is_picking_location:
-                overall_distortion += 1
+                visited += 1
 
             if not is_picking_location:
-                index_jump = self.grid.num_rows * 2 + overall_distortion
-                right_exists = self._rev_id_map.get(i + index_jump, None)
+                index_jump = self.grid.num_rows * 2 + visited
+                left_exists = self._rev_id_map.get(i - index_jump, None)
 
             if below_exists and connections[self.id_map[below_exists]] == representation_int:
                 res += [current_loc, below_exists]
 
-            if right_exists and connections[self.id_map[right_exists]] == representation_int:
-                res += [current_loc, right_exists]
+            if left_exists and connections[self.id_map[left_exists]] == representation_int:
+                res += [current_loc, left_exists]
 
         return res
+
+    def _get_locations_in_between(self, start, end, locations):
+        amount_crossings = self.grid.num_rows + 1
+        # All the locations below the start coordinate
+        below = [location for location in locations if location[0] == start[0] and start[1] < location[1]]
+
+        # All the locations above the end coordinate
+        upper = [location for location in locations if location[0] == end[0] and end[1] < location[1]]
+
+        return amount_crossings + len(below) + len(upper)
+
 
     def _is_fully_connected(self, connectivity, point_ids_to_check):
         """

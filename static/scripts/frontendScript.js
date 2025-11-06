@@ -89,6 +89,42 @@ class WarehouseFloorPlan {
         }
     }
 
+    drawRouteSegments(segments, color) {
+        this.ctx.strokeStyle = color; // Use the provided color
+        this.ctx.lineWidth = 3;       // Set the line width
+
+        let offsetX = this.normalizedCoordinate.x + 0.5 * this.horizontalGridSize;
+        let offsetY = this.normalizedCoordinate.y + 0.5 * this.verticalGridSize;
+
+        // Check if the list is valid (must have an even number of points)
+        if (segments.length % 2 !== 0) {
+            console.error("drawRouteSegments: The segment list is invalid (odd number of points).");
+            return;
+        }
+
+        // Iterate by 2, picking a start and end point for each segment
+        for (let i = 0; i < segments.length; i += 2) {
+            const start = segments[i];   // e.g., [0, 0]
+            const end = segments[i + 1]; // e.g., [0, 1]
+
+            // Check if start or end points are valid
+            if (!Array.isArray(start) || start.length < 2 || !Array.isArray(end) || end.length < 2) {
+                console.error("Invalid segment data at index:", i);
+                continue; // Skip this invalid segment
+            }
+
+            let startX = (start[0] - 1) * this.horizontalGridSize + offsetX;
+            let startY = (start[1] - 1) * this.verticalGridSize + offsetY;
+            let endX = (end[0] - 1) * this.horizontalGridSize + offsetX;
+            let endY = (end[1] - 1) * this.verticalGridSize + offsetY;
+
+            this.ctx.beginPath();              // Start a new path for EACH segment
+            this.ctx.moveTo(startX, startY);   // Move to the start point
+            this.ctx.lineTo(endX, endY);       // Draw to the end point
+            this.ctx.stroke();                 // Apply stroke for this segment
+        }
+    }
+
     drawWarehouseRoute(route, color) {
         // draw the route that is given in tuples from the backend
         //      - valid aisles are multiples of xStart + or -4 as one shelf is 2 grids wide
@@ -380,7 +416,7 @@ triggerRouteCalculationButton.addEventListener("click", function () {
                 overallRouteInfo.nearestNeighborComputationTime = data.nearestNeighbor.computation_time;
             }
             if (data.fixedParameter && data.fixedParameter.length > 0) {
-                wareHouseFloorPlan.drawWarehouseRoute(data.fixedParameter.route, "pink");
+                wareHouseFloorPlan.drawRouteSegments(data.fixedParameter.route, "pink");
                 overallRouteInfo.fixedParameter = data.fixedParameter.length;
                 overallRouteInfo.fixedParameterComputationTime = data.fixedParameter.computation_time;
             }
