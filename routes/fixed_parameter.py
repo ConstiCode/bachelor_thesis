@@ -67,6 +67,7 @@ class FixedParameter(BaseRoute):
             - The minimum cost (total length) of the Steiner Tree.
             Returns (None, float('inf')) if no solution is found.
         """
+
         num_points_of_interest = len(self.id_map)
 
         visited_locs = []
@@ -90,7 +91,7 @@ class FixedParameter(BaseRoute):
             pickings_in_this_aisle = self._get_picking_locations_on_edge(edge)
 
             is_horizontal = edge[0][1] == edge[1][1]
-            last_edge = edge == all_walkable_edges[len(all_walkable_edges)-1]
+            last_edge = edge == all_walkable_edges[len(all_walkable_edges) - 1]
 
             visited_locs += pickings_in_this_aisle
 
@@ -118,6 +119,55 @@ class FixedParameter(BaseRoute):
                     w_opt = final_state
 
         res = w_opt, min_cost
+        self.route_length = min_cost
+
+        route = self._turn_states_into_route(res, visited_locs)
+
+        return route
+
+    def _turn_states_into_route(self, state_cost_tuple, visited_locs):
+        """
+        Converts the final state and cost into a route representation.
+
+        Args:
+            state_cost_tuple (tuple): A tuple containing the final state and its cost.
+
+        Returns:
+            list: A list representing the route.
+        """
+        state, cost = state_cost_tuple
+        connections = state[0]
+
+        # Get the representative int for the dummy location so we can trace all connections from there
+        representation_int = connections[self.id_map[visited_locs[0]]]
+        res = []
+        overall_distortion = 0
+
+        for i in range(len(connections)):
+            if connections[i] != representation_int:
+                continue
+
+            current_loc = self._rev_id_map[i]
+
+            # Calculate if there is a location existing below
+            below_exists = self._rev_id_map.get(i + 1, None)
+
+            # Calculate if there is a location existing to the right
+            right_exists = None
+
+            is_picking_location = current_loc in visited_locs
+            if is_picking_location:
+                overall_distortion += 1
+
+            if not is_picking_location:
+                index_jump = self.grid.num_rows * 2 + overall_distortion
+                right_exists = self._rev_id_map.get(i + index_jump, None)
+
+            if below_exists and connections[self.id_map[below_exists]] == representation_int:
+                res += [current_loc, below_exists]
+
+            if right_exists and connections[self.id_map[right_exists]] == representation_int:
+                res += [current_loc, right_exists]
 
         return res
 
@@ -136,8 +186,8 @@ class FixedParameter(BaseRoute):
         """
 
         # Quick check: If all point IDs are the same, they are trivially connected.
-        #subtour_id = point_ids_to_check[0]
-        #for point_id in point_ids_to_check[1:]:
+        # subtour_id = point_ids_to_check[0]
+        # for point_id in point_ids_to_check[1:]:
         #    if subtour_id != point_id:
         #        return False
 
@@ -189,7 +239,7 @@ class FixedParameter(BaseRoute):
 
         # 2: Degree Constraint: No vertex should have an odd degree
         if horizontal:
-            current_frontier_crossing = current_edge[1][0]-3, current_edge[1][1]
+            current_frontier_crossing = current_edge[1][0] - 3, current_edge[1][1]
             current_frontier_crossing_id = self.id_map.get(current_frontier_crossing, False)
             if degrees[current_frontier_crossing_id] % 2 != 0:
                 return False
@@ -215,7 +265,7 @@ class FixedParameter(BaseRoute):
         generated_transitions.append(pass_through_state)
 
         # 3. Strategy: Pass Through Aisle 2 times --> top to bottom and back
-        pass_through_and_back_state = self._get_picking_aisle_transition_state(w, cost,aisle,
+        pass_through_and_back_state = self._get_picking_aisle_transition_state(w, cost, aisle,
                                                                                picking_locations_in_this_aisle,
                                                                                there_and_back=True)
         generated_transitions.append(pass_through_and_back_state)
@@ -302,13 +352,15 @@ class FixedParameter(BaseRoute):
 
         call = max if not bottom_to_top else min
         furthest_picking = call(picking_locations_in_this_aisle, key=lambda loc: loc[1])
-        extension_cost = 2 * furthest_picking[1] if not bottom_to_top else 2 * (self.get_edge_length(aisle) - furthest_picking[1])
+        # Todo test the bottom top cost calculation
+        extension_cost = (furthest_picking[1] - aisle[0][1]) * 2 if not bottom_to_top else 2 * (
+                self.get_edge_length(aisle) - furthest_picking[1])
         cost += extension_cost
         location_ids = [self.id_map[loc] for loc in picking_locations_in_this_aisle]
         vertices_to_update = location_ids + [self.id_map[aisle[0]]]
 
         for vertex_id in vertices_to_update:
-            new_degrees[vertex_id] += 2 # Start at that crossing to the location and back
+            new_degrees[vertex_id] += 2  # Start at that crossing to the location and back
 
         # Connect everything: the two entrances and all terminals inside the aisle
         new_connectivity = self._union_all_components(current_connectivity, vertices_to_update)
@@ -348,7 +400,8 @@ class FixedParameter(BaseRoute):
 
         return (current_connectivity, tuple(new_degrees)), cost
 
-    def _get_picking_aisle_transition_state(self, w, cost, aisle, picking_locations_in_this_aisle, there_and_back=False):
+    def _get_picking_aisle_transition_state(self, w, cost, aisle, picking_locations_in_this_aisle,
+                                            there_and_back=False):
         """
         Helper function that calculates the state for going through an isle once.
         :param w: list of current states
