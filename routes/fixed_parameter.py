@@ -141,7 +141,6 @@ class FixedParameter(BaseRoute):
         # Get the representative int for the dummy location so we can trace all connections from there
         representation_int = connections[self.id_map[visited_locs[0]]]
         res = []
-        visited = 0
 
         for i in range(len(connections)):
             if connections[i] != representation_int:
@@ -151,6 +150,7 @@ class FixedParameter(BaseRoute):
 
             # Calculate if there is a location existing below
             below_exists = None
+
             if current_loc[1] < self.grid.num_rows * 7:
                 below_exists = self._rev_id_map.get(i + 1, None)
 
@@ -158,12 +158,9 @@ class FixedParameter(BaseRoute):
             left_exists = None
 
             is_picking_location = current_loc in visited_locs
-            if is_picking_location:
-                visited += 1
 
-            if not is_picking_location:
-                index_jump = self.grid.num_rows * 2 + visited
-                left_exists = self._rev_id_map.get(i - index_jump, None)
+            if not is_picking_location and current_loc[0] > 0:
+                left_exists = current_loc[0] - 3, current_loc[1]
 
             if below_exists and connections[self.id_map[below_exists]] == representation_int:
                 res += [current_loc, below_exists]
@@ -175,6 +172,8 @@ class FixedParameter(BaseRoute):
 
     def _get_locations_in_between(self, start, end, locations):
         amount_crossings = self.grid.num_rows + 1
+        # Todo if this not works think again about the locations before the start
+
         # All the locations below the start coordinate
         below = [location for location in locations if location[0] == start[0] and start[1] < location[1]]
 
@@ -182,7 +181,6 @@ class FixedParameter(BaseRoute):
         upper = [location for location in locations if location[0] == end[0] and end[1] < location[1]]
 
         return amount_crossings + len(below) + len(upper)
-
 
     def _is_fully_connected(self, connectivity, point_ids_to_check):
         """
@@ -197,6 +195,11 @@ class FixedParameter(BaseRoute):
         Returns:
             bool: True if all points are connected, False otherwise.
         """
+        all_connected = len([p_loc for p_loc in point_ids_to_check if
+                             connectivity[p_loc] == connectivity[point_ids_to_check[0]]]) == len(point_ids_to_check)
+
+        if not all_connected:
+            return False
 
         # Quick check: If all point IDs are the same, they are trivially connected.
         # subtour_id = point_ids_to_check[0]
@@ -240,6 +243,11 @@ class FixedParameter(BaseRoute):
             bool: True if the state is valid, False otherwise.
         """
         connectivity, degrees = w
+
+        # Todo: check why this state is even created and if we can avoid it earlier
+        if all(degree == 2 for degree in degrees):
+            return False
+
         if last_edge:
             if any(degree % 2 != 0 for degree in degrees):
                 return False
@@ -330,18 +338,25 @@ class FixedParameter(BaseRoute):
         parents = list(connectivity)
 
         # Find the unique representatives (roots) of all components to be merged
+        # Assuming self._find_representative exists and is correct
         representatives = {self._find_representative(parents, id) for id in ids_to_merge}
 
         # If they are all already in the same component, no change is needed
         if len(representatives) <= 1:
             return tuple(parents)
 
+        # --- START OF FIX ---
+
         # Choose one representative to be the new "super-root"
-        target_root = representatives.pop()
+        # We use min() to make the choice deterministic.
+        target_root = min(representatives)
 
         # Union all other component roots to the target root
         for root in representatives:
-            parents[root] = target_root
+            if root != target_root:
+                parents[root] = target_root
+
+        # --- END OF FIX ---
 
         # Return the new, immutable connectivity state
         return tuple(parents)
@@ -453,7 +468,7 @@ class FixedParameter(BaseRoute):
         vertices_in_aisle += location_ids
 
         # Connect everything: the two entrances and all terminals inside the aisle
-        new_connectivity = self._union_all_components(current_connectivity, vertices_in_aisle)
+        new_connectivity = self._union_all_components(current_connectivity, vertices_in_aisle) # (0, 1, 1, 3, 1, 1, 6, 7, 8), [5, 8] --> For this input we should get (0,1,1,3,1,1,6,7,1) but we get (0, 8, 1, 3, 1, 1, 6, 7, 8)
 
         return (new_connectivity, tuple(new_degrees)), cost
 

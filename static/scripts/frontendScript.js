@@ -415,7 +415,7 @@ triggerRouteCalculationButton.addEventListener("click", function () {
                 overallRouteInfo.nearestNeighbor = data.nearestNeighbor.length;
                 overallRouteInfo.nearestNeighborComputationTime = data.nearestNeighbor.computation_time;
             }
-            if (data.fixedParameter && data.fixedParameter.length > 0) {
+            if (data.fixedParameter) { //  && data.fixedParameter.length > 0) todo maybe add this back?
                 wareHouseFloorPlan.drawRouteSegments(data.fixedParameter.route, "pink");
                 overallRouteInfo.fixedParameter = data.fixedParameter.length;
                 overallRouteInfo.fixedParameterComputationTime = data.fixedParameter.computation_time;
