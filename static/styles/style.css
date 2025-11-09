@@ -204,3 +204,156 @@ h1 {
     border-bottom-right-radius: 8px;
 }
 
+
+
+
+/* --- Modal Styles (Updated to match UI) --- */
+
+/* The full-screen background overlay */
+.modal-overlay {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1000; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0, 0, 0, 0.6); /* Darker overlay */
+    /* Add a subtle transition */
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+/* Add a class to show the modal to fade it in */
+.modal-overlay.show {
+    opacity: 1;
+    display: block;
+}
+
+/*
+ * Modal Content Box
+ */
+.modal-content {
+    /* Use the same font as the body */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+    /* Use a background from your UI */
+    background-color: #fdfdfd;
+
+    /* Match your "tiny border" layout */
+    margin: 2% auto;
+    width: 96%;
+    height: 96%;
+
+    /* Match your section border-radius and shadow */
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid #ddd; /* Softer border */
+
+    padding: 20px;
+    position: relative;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Style the modal's main title */
+.modal-content h2 {
+    text-align: center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 2.2rem; /* Slightly smaller than h1 */
+    font-weight: 500;
+    line-height: 1.2;
+    color: #2c2c2e; /* Match h1 color */
+    margin-bottom: 0.5rem;
+}
+
+/* Style the modal's subtitle/paragraph */
+.modal-content p {
+    text-align: center;
+    font-size: 1rem;
+    color: #555; /* Match label color */
+    margin-bottom: 15px;
+}
+
+
+/*
+ * Modal Close Button
+ */
+.modal-close {
+    color: #aaa;
+    position: absolute;
+    top: 15px;
+    right: 25px;
+    font-size: 35px;
+    font-weight: bold;
+    z-index: 10;
+}
+
+.modal-close:hover,
+.modal-close:focus {
+    color: #333; /* Darker hover */
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/*
+ * Container for the side-by-side canvases
+ */
+#modal-canvas-container {
+    display: flex;
+    flex-wrap: wrap; /* Allow canvases to wrap on smaller screens */
+    justify-content: center; /* Center the canvases */
+    gap: 20px; /* Space between canvases */
+    margin-top: 20px;
+    flex: 1; /* Allow this container to grow and fill modal space */
+    overflow-y: auto; /* Allow this area to scroll if needed */
+    padding: 10px; /* Add some internal padding */
+}
+
+/*
+ * Wrapper for each individual canvas + its title
+ */
+.modal-canvas-wrapper {
+    flex: 1; /* Allow items to grow */
+    min-width: 300px;
+
+    /* Match your section styling */
+    background-color: #fafafa; /* Use a light background */
+    border: 1px solid #ddd;
+    border-radius: 8px; /* Match button/input radius */
+
+    padding: 15px;
+    text-align: center;
+
+    /* Use flex to help size the canvas */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Style the title for each canvas */
+.modal-canvas-wrapper h3 {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: #333;
+    margin: 0 0 10px 0; /* Space below title */
+}
+
+/*
+ * The <canvas> element itself
+ */
+.modal-canvas-wrapper canvas {
+    width: 100%;
+
+    /* * This makes the canvas height responsive to the modal height.
+     * 65vh = 65% of the viewport height.
+     * This is more robust than a fixed pixel value.
+    */
+    height: 65vh;
+
+    /* Match input border */
+    border: 1px solid #ccc;
+    border-radius: 6px; /* Match input radius */
+}

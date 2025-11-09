@@ -326,6 +326,20 @@ function updateRouteInformation(
         });
     }
 
+    if (data.fixedParameter !== undefined) {
+        const distanceMeters = data.fixedParameter * metersPerTile;
+        const timeMinutes = distanceMeters / walkingSpeedMPerMin;
+        const cost = ((timeMinutes / 60) * pickerCostPerHour).toFixed(2);
+
+        rows.push({
+            name: "Fixed Parameter",
+            tiles: data.fixedParameter,
+            minutes: timeMinutes.toFixed(1),
+            cost: cost,
+            computation: data.fixedParameterComputationTime?.toFixed(2) + " ms"
+        });
+    }
+
     // Build HTML table
     let tableHtml = `
         <table style="border-collapse: collapse; width: 100%; max-width: 600px;">
@@ -360,8 +374,6 @@ function updateRouteInformation(
 
     document.getElementById("routeInfo").innerHTML = tableHtml;
 }
-
-
 
 
 function checkSelected() {

@@ -106,7 +106,6 @@ class FixedParameter(BaseRoute):
 
             current_layer = next_layer
 
-        # --- Line 16 & 17: Find the optimal solution in the last layer ---
         w_opt = None
         min_cost = float('inf')
 
@@ -252,7 +251,12 @@ class FixedParameter(BaseRoute):
             if any(degree % 2 != 0 for degree in degrees):
                 return False
 
-        # 1: Location Constraint: All the locations in the current edge must be visited.
+        # check that a degree is either 0 or even
+        for degree in degrees:
+            if degree % 2 != 0:
+                return False
+
+        # 2: Location Constraint: All the locations in the current edge must be visited.
         location_ids = sorted([self.id_map[loc] for loc in visited_locs])
         for loc_id in location_ids:
             if degrees[loc_id] == 0:
@@ -276,6 +280,9 @@ class FixedParameter(BaseRoute):
         :return: list of tuples (new_state, cost) for each traversal strategy
         """
         generated_transitions = []
+
+        # make sure that picking locations are unique
+        picking_locations_in_this_aisle = list(set(picking_locations_in_this_aisle))
 
         # 1. Strategy: Do Nothing
         if not picking_locations_in_this_aisle:
@@ -305,7 +312,7 @@ class FixedParameter(BaseRoute):
         generated_transitions.append(furthest_from_top)
         generated_transitions.append(furthest_from_bottom)
 
-        if not len(picking_locations_in_this_aisle) >= 2:
+        if not len(picking_locations_in_this_aisle) >= 2 or picking_locations_in_this_aisle:
             return generated_transitions
 
         # 5. Strategy: Split the picking locations in the aisle and return
@@ -345,18 +352,12 @@ class FixedParameter(BaseRoute):
         if len(representatives) <= 1:
             return tuple(parents)
 
-        # --- START OF FIX ---
-
-        # Choose one representative to be the new "super-root"
-        # We use min() to make the choice deterministic.
         target_root = min(representatives)
 
         # Union all other component roots to the target root
         for root in representatives:
             if root != target_root:
                 parents[root] = target_root
-
-        # --- END OF FIX ---
 
         # Return the new, immutable connectivity state
         return tuple(parents)
@@ -381,8 +382,8 @@ class FixedParameter(BaseRoute):
         call = max if not bottom_to_top else min
         furthest_picking = call(picking_locations_in_this_aisle, key=lambda loc: loc[1])
         # Todo test the bottom top cost calculation
-        extension_cost = (furthest_picking[1] - aisle[0][1]) * 2 if not bottom_to_top else 2 * (
-                self.get_edge_length(aisle) - furthest_picking[1])
+        extension_cost = (furthest_picking[1] - aisle[0][1]) * 2 if not bottom_to_top else (aisle[0][1] -
+                                                                                            furthest_picking[1]) * 2
         cost += extension_cost
         location_ids = [self.id_map[loc] for loc in picking_locations_in_this_aisle]
         vertices_to_update = location_ids + [self.id_map[aisle[0]]]
@@ -468,7 +469,8 @@ class FixedParameter(BaseRoute):
         vertices_in_aisle += location_ids
 
         # Connect everything: the two entrances and all terminals inside the aisle
-        new_connectivity = self._union_all_components(current_connectivity, vertices_in_aisle) # (0, 1, 1, 3, 1, 1, 6, 7, 8), [5, 8] --> For this input we should get (0,1,1,3,1,1,6,7,1) but we get (0, 8, 1, 3, 1, 1, 6, 7, 8)
+        new_connectivity = self._union_all_components(current_connectivity,
+                                                      vertices_in_aisle)  # (0, 1, 1, 3, 1, 1, 6, 7, 8), [5, 8] --> For this input we should get (0,1,1,3,1,1,6,7,1) but we get (0, 8, 1, 3, 1, 1, 6, 7, 8)
 
         return (new_connectivity, tuple(new_degrees)), cost
 
