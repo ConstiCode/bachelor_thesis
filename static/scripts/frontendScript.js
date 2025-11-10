@@ -16,6 +16,31 @@ class WarehouseFloorPlan {
         this.ctx.scale(this.dpr, this.dpr);
     }
 
+    renderBaseFloorToCanvas(targetCanvas, scale = 1) {
+        const ctx = targetCanvas.getContext("2d");
+
+        // set sizes
+        targetCanvas.width = this.canvas.width;
+        targetCanvas.height = this.canvas.height;
+
+        ctx.scale(this.dpr, this.dpr);
+
+        // run the same drawing code as the fresh warehouse
+        ctx.fillStyle = "#1e1e1e";
+        ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+
+        // temporarily replace ctx
+        const originalCtx = this.ctx;
+        this.ctx = ctx;
+
+        // redraw shelves and packing table
+        // 2. 'scale' HIER AN DIE NÄCHSTE FUNKTION WEITERGEBEN
+        this.drawStorageShelfFloorPlan(this.numColumns, this.numCrossings, scale);
+
+        this.ctx = originalCtx;
+    }
+
+
     clearCanvas() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.ctx.fillStyle = "#1e1e1e";
@@ -30,7 +55,7 @@ class WarehouseFloorPlan {
         // calculate the position of the packing table relative to the number of and crossings (Y)
         let offset = (this.numCrossings * 7 * this.verticalGridSize) / 2;
         let startPositionY = (this.canvas.height / 2) + offset;
-        let positionY = startPositionY + 8 * this.verticalGridSize; // this.numCrossings * (this.verticalGridSize * 7);
+        let positionY = ((this.canvas.height / 2) + offset) + 8 * this.verticalGridSize; // this.numCrossings * (this.verticalGridSize * 7);
 
         let positionX = (((this.canvas.width / 2) - 2 * this.horizontalGridSize));
         this.ctx.rect(positionX, positionY, this.horizontalGridSize * 3, this.horizontalGridSize); // x, y, width, height
@@ -142,7 +167,7 @@ class WarehouseFloorPlan {
         this.ctx.stroke();
     }
 
-    drawStorageShelfFloorPlan(numColumns, numCrossings) {
+    drawStorageShelfFloorPlan(numColumns, numCrossings, scale = 1) {
         this.clearCanvas();
         this.numColumns = numColumns;
         this.numCrossings = numCrossings;
@@ -155,6 +180,9 @@ class WarehouseFloorPlan {
         // the grid sizes are dynamically calculated based on the number of aisles and the screen height
         this.verticalGridSize = this.canvas.height / ((numCrossings * 7) + marginVertical);
         this.horizontalGridSize = this.canvas.width / (numColumns * 4 + marginHorizontal);
+
+        this.verticalGridSize *= scale;
+        this.horizontalGridSize *= scale;
 
         let offset = (numCrossings * 7 * this.verticalGridSize) / 2;
         this.startPositionY = (this.canvas.height / 2) + offset;
@@ -225,7 +253,7 @@ const generateLocationTestSetButton = document.getElementById("generateLocations
 const triggerRouteCalculationButton = document.getElementById("triggerRouteCalculationButton");
 
 // draw an initial warehouse floor plan
-wareHouseFloorPlan.drawStorageShelfFloorPlan(5, 3, wareHouseFloorPlan.canvas.height, wareHouseFloorPlan.canvas.width);
+wareHouseFloorPlan.drawStorageShelfFloorPlan(5, 3);
 
 changeWarehouseFloorPlanButton.addEventListener("click", function () {
     let aisles = document.getElementById("warehouseAisleCount").value;
@@ -391,10 +419,13 @@ triggerRouteCalculationButton.addEventListener("click", function () {
         alert("Please generate locations first");
         return;
     }
+
     if (stockLocations.length === 1 && checkSelected().includes("christofides")) {
         alert("Christofides algorithm requires at least 2 locations");
         return;
     }
+
+    let algorithms = checkSelected();
 
     fetch('/calculate-route', {
         method: 'POST',
@@ -409,7 +440,7 @@ triggerRouteCalculationButton.addEventListener("click", function () {
             },
             locations: stockLocations,
             refactor_testing: true,
-            algorithms: checkSelected()
+            algorithms: algorithms
         })
     })
         .then(response => response.json())
@@ -432,10 +463,72 @@ triggerRouteCalculationButton.addEventListener("click", function () {
                 overallRouteInfo.fixedParameter = data.fixedParameter.length;
                 overallRouteInfo.fixedParameterComputationTime = data.fixedParameter.computation_time;
             }
-            updateRouteInformation(overallRouteInfo);
-            // Todo add fixed parameter length when implemented
+            if (algorithms.length > 1) {
+                const modal = document.getElementById("comparison-modal");
+                const modalContainer = document.getElementById("modal-canvas-container");
+                modalContainer.innerHTML = "";
+                modal.classList.add("show");
+
+                const algoMap = {
+                    christofides: data.christofides,
+                    nearestNeighbor: data.nearestNeighbor,
+                    fixedParameter: data.fixedParameter
+                };
+
+                algorithms.forEach(algo => {
+                    const algoData = algoMap[algo];
+                    if (!algoData) return;
+
+                    const wrapper = document.createElement("div");
+                    wrapper.classList.add("modal-canvas-wrapper");
+
+                    const title = document.createElement("h3");
+                    title.textContent = algo;
+                    wrapper.appendChild(title);
+
+                    const cloneCanvas = document.createElement("canvas");
+                    cloneCanvas.style.width = "100%";
+                    cloneCanvas.style.height = "auto";
+                    wrapper.appendChild(cloneCanvas);
+                    modalContainer.appendChild(wrapper);
+
+                    const modalDrawingScale = 1.0;
+
+                    // 1. Zeichne den Grundriss auf den geklonten Canvas
+                    wareHouseFloorPlan.renderBaseFloorToCanvas(cloneCanvas, modalDrawingScale);
+
+                    // 2. Erhalte den Kontext des geklonten Canvas
+                    const cloneCtx = cloneCanvas.getContext("2d");
+                    const originalCtx = wareHouseFloorPlan.ctx; // Speichere den originalen Kontext
+
+                    // 3. Setze den Canvas-Kontext des WarehouseFloorPlan-Objekts auf den Klon
+                    wareHouseFloorPlan.ctx = cloneCtx;
+
+                    // --- NEU: Zeichne die Picking Markers auf den geklonten Canvas ---
+                    // 'stockLocations' ist die Variable, die du bereits hast
+                    wareHouseFloorPlan.drawPickingMarkers(stockLocations);
+
+                    // 4. Zeichne die Route auf den geklonten Canvas
+                    if (algo === "christofides") {
+                        wareHouseFloorPlan.drawWarehouseRoute(algoData.route, "yellow");
+                    }
+                    if (algo === "nearestNeighbor") {
+                        wareHouseFloorPlan.drawWarehouseRoute(algoData.route, "red");
+                    }
+                    if (algo === "fixedParameter") {
+                        wareHouseFloorPlan.drawRouteSegments(algoData.route, "pink");
+                    }
+
+                    // 5. Setze den Kontext des WarehouseFloorPlan-Objekts zurück auf den Original-Canvas
+                    wareHouseFloorPlan.ctx = originalCtx;
+                });
+            }
 
 
         })
         .catch(error => console.error('Error:', error));
+});
+
+document.querySelector(".modal-close").addEventListener("click", () => {
+    document.getElementById("comparison-modal").classList.remove("show");
 });

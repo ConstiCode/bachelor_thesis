@@ -13,7 +13,10 @@ SOLVERS = {
     'christofides': Christofides,
     'fixedParameter': FixedParameter
 }
-
+# Todo picking table richtig positionieren
+# Modal zum laufen bringen
+# Routenlänge anzeigen
+# Zeit anzeigen
 
 @app.route('/')
 def display_warehouse_floor_plan():
@@ -21,21 +24,19 @@ def display_warehouse_floor_plan():
 
 
 @app.route('/generate-test-locations', methods=['POST'])
-def generate_test_locations() -> [(int, int)]:
+def generate_test_locations():
     """Computes the number of locations and generates random locations"""
 
     info = request.get_json()
-    warehouse = info.get('warehouse_floor_plan')
     product_count = int(info.get('product_count', 0))
 
-    if not warehouse or product_count <= 0:
+    warehouse_config = info.get('warehouse_config', False)
+
+    if not warehouse_config:
         return jsonify([])
 
-    grid = WareHouseGrid(int(warehouse.get('numColumns')), int(warehouse.get('numCrossings')))
+    grid = WareHouseGrid(int(warehouse_config.get('numColumns')),int(warehouse_config.get('numCrossings')))
     number_of_locations = grid.total_locations
-
-    if product_count > number_of_locations:
-        return jsonify([])
 
     random_numbers = random.sample(range(1, number_of_locations + 1), product_count)
 
@@ -51,7 +52,7 @@ def calculate_route():
     info = request.get_json()
     algorithms = info.get('algorithms')
     locations = info.get('locations')
-    warehouse = info.get('warehouse_floor_plan')
+    warehouse = info.get('warehouse_config')
     number_of_shelf_columns = int(warehouse.get('numColumns'))
     number_of_rows = int(warehouse.get('numCrossings'))
 
