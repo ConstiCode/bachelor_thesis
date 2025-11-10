@@ -12,7 +12,7 @@ class NearestNeighbor(BaseRoute):
             # Find the nearest neighbor
             route.append(self._find_nearest_neighbor(route[-1], remaining_locations))
             remaining_locations.remove(route[-1])
-        route.append(self.start_pos)
+        route.append({'x': 0, 'y': 0})
 
         self.route_length = self.compute_route_length([(d['x'], d['y']) for d in route])
         a_star = AStar(self.grid.grid)

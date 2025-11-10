@@ -28,6 +28,10 @@ class AStar:
                 y = coordinate[1]
                 x = coordinate[0]
 
+                # this is the location of the packing station and therefore the only legal location that is on an aisle
+                if x == 0 and y == 0:
+                    return x, y
+
                 if not is_aisle and self.grid[y][x]:
                     raise ValueError("The given coordinate is a aisle not a location.")
 

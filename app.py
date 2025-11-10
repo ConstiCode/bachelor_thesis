@@ -13,10 +13,6 @@ SOLVERS = {
     'christofides': Christofides,
     'fixedParameter': FixedParameter
 }
-# Todo picking table richtig positionieren
-# Modal zum laufen bringen
-# Routenlänge anzeigen
-# Zeit anzeigen
 
 @app.route('/')
 def display_warehouse_floor_plan():
@@ -35,7 +31,7 @@ def generate_test_locations():
     if not warehouse_config:
         return jsonify([])
 
-    grid = WareHouseGrid(int(warehouse_config.get('numColumns')),int(warehouse_config.get('numCrossings')))
+    grid = WareHouseGrid(int(warehouse_config.get('numColumns')), int(warehouse_config.get('numCrossings')))
     number_of_locations = grid.total_locations
 
     random_numbers = random.sample(range(1, number_of_locations + 1), product_count)
@@ -56,18 +52,9 @@ def calculate_route():
     number_of_shelf_columns = int(warehouse.get('numColumns'))
     number_of_rows = int(warehouse.get('numCrossings'))
 
-    shelf_height = 6
-    aisle_height = 1
-    shelf_width = 2
-    aisle_width = 1
+    packing_table = {'x': 0, 'y': 0}
 
-    total_width = number_of_shelf_columns * (shelf_width + aisle_width) + 1
-    total_rows = number_of_rows * shelf_height + number_of_rows * aisle_height + 1
-
-    packing_table = {'x': (total_width // 2) - 1,
-                     'y': total_rows}
-
-    grid = WareHouseGrid(int(warehouse['numColumns']), int(warehouse['numCrossings']))
+    grid = WareHouseGrid(number_of_shelf_columns, number_of_rows)
 
     routes = {}
     for algorithm in algorithms:

@@ -1,5 +1,3 @@
-// NEW FILE: ModalView.js
-import WarehouseRenderer from './WarehouseRenderer.js';
 
 export default class ModalView {
     /**

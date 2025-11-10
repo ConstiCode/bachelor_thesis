@@ -1,166 +1,123 @@
 import WarehouseModel from './WarehouseModel.js';
 import WarehouseRenderer from './WarehouseRenderer.js';
 import ApiService from './ApiService.js';
-import {addLocationToTable, updateRouteInfoTable} from './domUtils.js';
-//import ModalView from "./ModalView";
+import ModalView from "./ModalView.js";
+import MainView from "./MainView.js";
 
 export default class AppController {
     constructor() {
-        this.model = new WarehouseModel(2, 2); // Default values
+        // --- STATE & SERVICES ---
         this.renderer = new WarehouseRenderer("warehouseCanvas");
         this.api = new ApiService();
 
-        // this.modalView = new ModalView(this.renderer)
+        // --- VIEWS ---
+        this.mainView = new MainView();
+        this.modalView = new ModalView(this.renderer)
+        const initialConfig = this.mainView.getFloorPlanConfig();
+        this.model = new WarehouseModel(initialConfig.aisles, initialConfig.crossings);
 
-        this.aisleInput = document.getElementById("warehouseAisleCount");
-        this.crossingInput = document.getElementById("warehouseCrossingCount");
-        this.locationCountInput = document.getElementById("locationCount");
+        // --- BINDING ---
+        // We tell the VIEW what to do when *it* is clicked.
+        // We pass it the HANDLER.
+        // Note the .bind(this) to maintain the correct "this" context.
+        this.mainView.bindChangeFloorPlan(this._handleFloorPlanChange.bind(this));
+        this.mainView.bindGenerateLocations(this._handleGenerateLocations.bind(this));
+        this.mainView.bindCalculateRoute(this._handleCalculateRoute.bind(this));
 
-        this.changeFloorPlanBtn = document.getElementById("changeWarehouseFloorPlan");
-        this.generateLocationsBtn = document.getElementById("generateLocationsButton");
-        this.triggerRouteBtn = document.getElementById("triggerRouteCalculationButton");
-
-        this.locationTableBody = document.querySelector("#locationTable tbody");
-        this.routeInfoContainer = document.getElementById("routeInfo");
-
-        this.modal = document.getElementById("comparison-modal");
-        this.modalContainer = document.getElementById("modal-canvas-container");
-        document.querySelector(".modal-close").addEventListener("click", () => this.modal.classList.remove("show"));
-
-        this._bindEventListeners();
-
+        // --- INITIALIZATION ---
         this._handleFloorPlanChange();
+
     }
 
-    _bindEventListeners() {
-        this.changeFloorPlanBtn.addEventListener("click", () => this._handleFloorPlanChange());
-        this.generateLocationsBtn.addEventListener("click", () => this._handleGenerateLocations());
-        this.triggerRouteBtn.addEventListener("click", () => this._handleCalculateRoute());
-    }
-
+     /**
+     * Controller handler for changing the floor plan.
+     * Orchestrates model updates and view renders.
+     */
     _handleFloorPlanChange() {
-        const aisles = this.aisleInput.value;
-        const crossings = this.crossingInput.value;
+        // 1. Get data FROM the view
+        const config = this.mainView.getFloorPlanConfig();
 
-        if (aisles < 1 || crossings < 1) {
-            alert("Please enter a valid number for aisles and crossings");
+        // 2. Validate (Controller's job)
+        if (config.aisles < 1 || config.crossings < 1) {
+            this.mainView.showError("Please enter a valid number for aisles and crossings");
             return;
         }
 
-        this.model.updateDimensions(aisles, crossings);
+        // 3. Update Model (Controller's job)
+        this.model.updateDimensions(config.aisles, config.crossings);
 
-        this.locationTableBody.innerHTML = "";
-        this.routeInfoContainer.innerHTML = "";
-
+        // 4. Delegate to Views (Controller's job)
+        this.mainView.clearData();
         this.renderer.drawScene(this.model);
     }
 
+     /**
+     * Controller handler for generating locations.
+     */
     async _handleGenerateLocations() {
-        const productCount = this.locationCountInput.value;
-        if (productCount < 1) {
-            alert("Please enter a valid product count.");
-            return;
+        // 1. Clear previous errors/data
+        this.mainView.clearData();
+
+        // --- 2. THE A-GRADE "try...catch" BLOCK ---
+        try {
+            // 3. Get data from View & Validate
+            const productCount = this.mainView.getLocationCount();
+            if (productCount < 1) {
+                this.mainView.showError("Please enter a valid product count.");
+                return;
+            }
+
+            // 4. Call Service (the "happy path")
+            const locations = await this.api.generateLocations(this.model, productCount);
+
+            // 5. Update Model
+            this.model.setStockLocations(locations);
+
+            // 6. Delegate to Views
+            this.mainView.renderLocations(locations); // Give the view DATA, not instructions
+            this.renderer.drawScene(this.model);
+
+        } catch (error) {
+            // --- 6. THE "failure path" ---
+            // If the api.generateLocations() throws an error, we catch it.
+            // We then DELEGATE the error display to the view.
+            this.mainView.showError(error.message);
         }
-
-        const locations = await this.api.generateLocations(this.model, productCount);
-        if (locations.length === 0) {
-            alert("No data available.");
-            return;
-        }
-
-        this.model.setStockLocations(locations);
-
-        this.locationTableBody.innerHTML = "";
-        locations.forEach(loc => {
-            addLocationToTable(this.locationTableBody, loc);
-        });
-
-        this.renderer.drawScene(this.model);
     }
 
+    /**
+     * Controller handler for calculating routes.
+     */
     async _handleCalculateRoute() {
-        const algorithms = this._checkSelectedAlgorithms();
-        if (algorithms.length === 0) {
-            alert("Please select at least one algorithm");
-            return;
+        this.mainView.clearData(); // Clear errors
+
+        try {
+            // 1. Validate (Controller's job)
+            const algorithms = this.mainView.getSelectedAlgorithms();
+            if (algorithms.length === 0) {
+                this.mainView.showError("Please select at least one algorithm");
+                return;
+            }
+            if (this.model.stockLocations.length === 0) {
+                this.mainView.showError("Please generate locations first");
+                return;
+            }
+
+            // 2. Call Service
+            const routeData = await this.api.calculateRoutes(this.model, this.model.stockLocations, algorithms);
+
+            // 3. Update Model
+            this.model.setRoutes(routeData);
+
+            // 4. Delegate to Views
+            this.renderer.drawScene(this.model);
+            if (algorithms.length > 1) {
+                this.modalView.show(this.model);
+            }
+
+        } catch (error) {
+            // 5. Catch and Delegate Error
+            this.mainView.showError(error.message);
         }
-
-        if (this.model.stockLocations.length === 0) {
-            alert("Please generate locations first");
-            return;
-        }
-
-        const routeData = await this.api.calculateRoutes(this.model, this.model.stockLocations, algorithms);
-
-        this.model.setRoutes(routeData);
-
-        this.renderer.drawScene(this.model);
-
-        if (algorithms.length > 1) {
-            this._showComparisonModal();
-        }
-    }
-
-    _checkSelectedAlgorithms() {
-        const checkboxes = document.querySelectorAll('input[name="selections"]:checked');
-        return Array.from(checkboxes).map(cb => cb.value);
-    }
-
-    _showComparisonModal() {
-        this.modalContainer.innerHTML = "";
-
-        // 1. Create a list to hold the canvases and their data
-        const canvasesToRender = [];
-
-        // --- LOOP 1: BUILD THE DOM ---
-        Object.entries(this.model.routes).forEach(([algoName, algoData]) => {
-            if (!algoData) return;
-
-            const wrapper = document.createElement("div");
-            wrapper.classList.add("modal-canvas-wrapper");
-
-            // Add the title (e.g., "christofides")
-            const title = document.createElement("h3");
-            title.textContent = algoName;
-            wrapper.appendChild(title);
-
-            // Add the canvas
-            const cloneCanvas = document.createElement("canvas");
-            cloneCanvas.style.width = "100%";
-            cloneCanvas.style.height = "300px";
-            wrapper.appendChild(cloneCanvas);
-
-            const info = document.createElement("div");
-            info.classList.add("modal-route-info"); // Add a class for styling
-
-            const length = algoData.length ? algoData.length.toFixed(2) : 'N/A';
-            const computationTime = algoData.computation_time ? algoData.computation_time.toFixed(2) : 'N/A';
-
-            info.textContent = `Route Length: ${length} | Computation Time: ${computationTime}`;
-            wrapper.appendChild(info);
-
-            this.modalContainer.appendChild(wrapper);
-
-            canvasesToRender.push({
-                canvas: cloneCanvas,
-                algoName: algoName,
-                data: algoData
-            });
-        });
-
-        // 2. Show the modal
-        this.modal.classList.add("show");
-
-        // --- LOOP 2: DRAW ON THE CANVASES ---
-        canvasesToRender.forEach(item => {
-            this.renderer.renderToCanvas(
-                item.canvas,
-                this.model,
-                1.0, // scale
-                this.model.stockLocations,
-                item.algoName,
-                item.data
-            );
-        });
     }
 }

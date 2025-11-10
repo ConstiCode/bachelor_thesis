@@ -3,6 +3,7 @@ from routes.base import BaseRoute
 
 class FixedParameter(BaseRoute):
     def __init__(self, grid, locations, start_pos):
+        locations.append(start_pos)
         super().__init__(grid, locations, start_pos)
         self.id_map = self._create_id_map()
         self._rev_id_map = {v: k for k, v in self.id_map.items()}
