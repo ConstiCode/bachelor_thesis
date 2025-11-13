@@ -8,7 +8,7 @@ export default class WarehouseRenderer {
         this.dpr = window.devicePixelRatio || 1;
         this.setupCanvas(this.canvas, this.ctx);
 
-        // The main translator for the main canvas
+        // translator for the main canvas
         this.translator = new CoordinateTranslator();
     }
 
@@ -36,19 +36,18 @@ export default class WarehouseRenderer {
      * Renders the entire scene to the main canvas.
      */
     drawScene(model) {
-        // 1. Update the translator with the main canvas dimensions
+        // update translator
         const {width, height} = this.canvas.getBoundingClientRect();
         this.translator.update(model, width, height);
 
-        // 2. Clear
         this.clearCanvas(this.ctx, width, height);
 
-        // 3. Draw components
+        // draw components
         this._drawShelves(this.ctx, model, this.translator);
         this._drawPackingTable(this.ctx, model, this.translator);
         this._drawPickingMarkers(this.ctx, model, this.translator);
 
-        // 4. Draw routes
+        // draw routes
         for (const [algoName, data] of Object.entries(model.routes)) {
             const color = (algoName === 'christofides') ? 'yellow' : (algoName === 'nearestNeighbor') ? 'red' : 'pink';
             if (algoName === 'fixedParameter') {

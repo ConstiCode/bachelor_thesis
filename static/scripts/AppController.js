@@ -17,36 +17,31 @@ export default class AppController {
         this.model = new WarehouseModel(initialConfig.aisles, initialConfig.crossings);
 
         // --- BINDING ---
-        // We tell the VIEW what to do when *it* is clicked.
-        // We pass it the HANDLER.
-        // Note the .bind(this) to maintain the correct "this" context.
         this.mainView.bindChangeFloorPlan(this._handleFloorPlanChange.bind(this));
         this.mainView.bindGenerateLocations(this._handleGenerateLocations.bind(this));
         this.mainView.bindCalculateRoute(this._handleCalculateRoute.bind(this));
 
         // --- INITIALIZATION ---
         this._handleFloorPlanChange();
-
     }
 
      /**
      * Controller handler for changing the floor plan.
-     * Orchestrates model updates and view renders.
+     * Updates the model and render's the new floor plan.
      */
     _handleFloorPlanChange() {
-        // 1. Get data FROM the view
+        // get data from View
         const config = this.mainView.getFloorPlanConfig();
 
-        // 2. Validate (Controller's job)
         if (config.aisles < 1 || config.crossings < 1) {
             this.mainView.showError("Please enter a valid number for aisles and crossings");
             return;
         }
 
-        // 3. Update Model (Controller's job)
+        // update model
         this.model.updateDimensions(config.aisles, config.crossings);
 
-        // 4. Delegate to Views (Controller's job)
+        // rerender the scene
         this.mainView.clearData();
         this.renderer.drawScene(this.model);
     }
@@ -55,32 +50,28 @@ export default class AppController {
      * Controller handler for generating locations.
      */
     async _handleGenerateLocations() {
-        // 1. Clear previous errors/data
+        // clear previous errors and data
         this.mainView.clearData();
 
-        // --- 2. THE A-GRADE "try...catch" BLOCK ---
+        // api call for the stock locations
         try {
-            // 3. Get data from View & Validate
             const productCount = this.mainView.getLocationCount();
             if (productCount < 1) {
                 this.mainView.showError("Please enter a valid product count.");
                 return;
             }
 
-            // 4. Call Service (the "happy path")
+            // call flask service to generate locations
             const locations = await this.api.generateLocations(this.model, productCount);
 
-            // 5. Update Model
+            // update model with new locations
             this.model.setStockLocations(locations);
 
-            // 6. Delegate to Views
-            this.mainView.renderLocations(locations); // Give the view DATA, not instructions
+            // render locations in canvas via renderer
+            this.mainView.renderLocations(locations);
             this.renderer.drawScene(this.model);
 
         } catch (error) {
-            // --- 6. THE "failure path" ---
-            // If the api.generateLocations() throws an error, we catch it.
-            // We then DELEGATE the error display to the view.
             this.mainView.showError(error.message);
         }
     }
@@ -89,10 +80,9 @@ export default class AppController {
      * Controller handler for calculating routes.
      */
     async _handleCalculateRoute() {
-        this.mainView.clearData(); // Clear errors
+        this.mainView.clearData();
 
         try {
-            // 1. Validate (Controller's job)
             const algorithms = this.mainView.getSelectedAlgorithms();
             if (algorithms.length === 0) {
                 this.mainView.showError("Please select at least one algorithm");
@@ -103,20 +93,18 @@ export default class AppController {
                 return;
             }
 
-            // 2. Call Service
+            // call service
             const routeData = await this.api.calculateRoutes(this.model, this.model.stockLocations, algorithms);
 
-            // 3. Update Model
             this.model.setRoutes(routeData);
 
-            // 4. Delegate to Views
+            // render results
             this.renderer.drawScene(this.model);
             if (algorithms.length > 1) {
                 this.modalView.show(this.model);
             }
 
         } catch (error) {
-            // 5. Catch and Delegate Error
             this.mainView.showError(error.message);
         }
     }

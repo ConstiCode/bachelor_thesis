@@ -13,6 +13,11 @@ SOLVERS = {
     'christofides': Christofides,
     'fixedParameter': FixedParameter
 }
+# Todo check christofides route length calculation there is a bug there
+# Todo check the drawing function of fixed parameter there is a bug there
+# Todo versuche diese Wegprunen noch zu verstehen
+
+
 
 @app.route('/')
 def display_warehouse_floor_plan():

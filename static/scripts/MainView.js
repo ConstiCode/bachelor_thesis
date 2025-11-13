@@ -1,5 +1,6 @@
 /**
- * This helper function is from your domUtils.js.
+ * Todo import it rather than leaving it here.
+ * This helper function is from domUtils.js.
  * We move it here, or import it, because it is PURELY
  * a view-related function.
  */
@@ -91,6 +92,7 @@ export default class MainView {
     /**
      * Binds a handler to the 'Change Floor Plan' button.
      * @param {Function} handler
+     * Todo understand this pattern better.
      */
     bindChangeFloorPlan(handler) {
         this.changeFloorPlanBtn.addEventListener("click", handler);

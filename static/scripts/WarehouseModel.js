@@ -1,5 +1,4 @@
 export default class WarehouseModel {
-    // --- LAYOUT CONSTANTS (NO MORE MAGIC NUMBERS) ---
     static SHELF_GRID_HEIGHT = 6;
     static SHELF_GRID_WIDTH = 2;
     static AISLE_GRID_HEIGHT = 1;
@@ -7,7 +6,7 @@ export default class WarehouseModel {
     static SHELF_TOTAL_HEIGHT = this.SHELF_GRID_HEIGHT + this.AISLE_GRID_HEIGHT; // 7
     static SHELF_TOTAL_WIDTH = this.SHELF_GRID_WIDTH + this.AISLE_GRID_WIDTH;   // 3
 
-    // --- STATE ---
+    // current state
     numColumns = 0;
     numCrossings = 0;
     stockLocations = [];
@@ -23,8 +22,8 @@ export default class WarehouseModel {
     updateDimensions(cols, rows) {
         this.numColumns = parseInt(cols, 10);
         this.numCrossings = parseInt(rows, 10);
-        this.stockLocations = []; // Reset state
-        this.routes = {};         // Reset state
+        this.stockLocations = [];
+        this.routes = {};
     }
 
     /**

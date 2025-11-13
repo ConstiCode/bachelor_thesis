@@ -1,6 +1,5 @@
 /**
- * SECURELY creates and appends a location row to the table.
- * NO innerHTML is used.
+ * Adds a location to the given table body.
  */
 export function addLocationToTable(tableBody, location) {
     const row = document.createElement("tr");
@@ -19,17 +18,16 @@ export function addLocationToTable(tableBody, location) {
 }
 
 /**
- * SECURELY builds the route info table.
- * NO innerHTML is used.
+ * Updates the route information table with new data.
  */
 export function updateRouteInfoTable(element, data) {
-    // Clear previous results
+    // clear previous table
     element.innerHTML = "";
-
+    // todo: check why the table is cleared to early
     const table = document.createElement("table");
     table.style.borderCollapse = "collapse"; // Use CSS classes instead, but this works
 
-    // Header
+    // create the table header
     const thead = document.createElement("thead");
     const hr = document.createElement("tr");
     const headers = ["Algorithm", "Length (tiles)", "Walking Time (min)", "Cost ($)", "Computation (ms)"];
@@ -42,11 +40,9 @@ export function updateRouteInfoTable(element, data) {
     thead.appendChild(hr);
     table.appendChild(thead);
 
-    // Body
+    // get the body
     const tbody = document.createElement("tbody");
 
-    // ... Your logic from updateRouteInformation to calculate rows ...
-    // Example for one row:
     if (data.nearestNeighbor) {
         const r = data.nearestNeighbor; // Simplified
         const row = document.createElement("tr");
@@ -57,12 +53,9 @@ export function updateRouteInfoTable(element, data) {
         const cellLength = document.createElement("td");
         cellLength.textContent = r.length; // Your logic here
 
-        // ... etc. for other cells ...
-
         row.append(cellName, cellLength /*, ...otherCells */);
         tbody.appendChild(row);
     }
-    // ... Repeat for christofides, fixedParameter ...
 
     table.appendChild(tbody);
     element.appendChild(table);

@@ -1,4 +1,5 @@
 from routes.base import BaseRoute
+import math
 
 
 class FixedParameter(BaseRoute):
@@ -7,6 +8,8 @@ class FixedParameter(BaseRoute):
         super().__init__(grid, locations, start_pos)
         self.id_map = self._create_id_map()
         self._rev_id_map = {v: k for k, v in self.id_map.items()}
+        self.all_walkable_edges = self.get_all_relevant_aisles_in_order()
+        self.locations_on_edge = {edge: self._get_picking_locations_on_edge(edge) for edge in self.all_walkable_edges}
 
     def _create_id_map(self):
         """
@@ -71,7 +74,7 @@ class FixedParameter(BaseRoute):
 
         num_points_of_interest = len(self.id_map)
 
-        visited_locs = []
+        visited_loc_ids = set()
 
         # Each point starts as its own component
         initial_connectivity = tuple(range(num_points_of_interest))
@@ -85,22 +88,22 @@ class FixedParameter(BaseRoute):
 
         # Iterate though all the edges of the warehouse in the order vertical then horizontal and left to right,
         # bottom to top
-        all_walkable_edges = self.get_all_aisles_in_order()
-        for edge in all_walkable_edges:
+        for edge in self.all_walkable_edges:
             next_layer = {}
 
-            pickings_in_this_aisle = self._get_picking_locations_on_edge(edge)
+            pickings_in_this_aisle = self.locations_on_edge[edge]
 
             is_horizontal = edge[0][1] == edge[1][1]
-            last_edge = edge == all_walkable_edges[len(all_walkable_edges) - 1]
+            last_edge = edge == self.all_walkable_edges[len(self.all_walkable_edges) - 1]
 
-            visited_locs += pickings_in_this_aisle
+            current_aisle_loc_ids = {self.id_map[loc] for loc in pickings_in_this_aisle}
+            visited_loc_ids.update(current_aisle_loc_ids)
 
             for w, cost in current_layer.items():
                 possible_transitions = self._get_aisle_traversal_strategies(w, cost, edge, pickings_in_this_aisle,
                                                                             is_horizontal)
                 for (w_prime, transition_cost) in possible_transitions:
-                    if self.check_validity(edge, w_prime, visited_locs, is_horizontal, last_edge):
+                    if self.check_validity(edge, w_prime, visited_loc_ids, is_horizontal, last_edge):
 
                         if transition_cost < next_layer.get(w_prime, float('inf')):
                             next_layer[w_prime] = transition_cost
@@ -113,7 +116,7 @@ class FixedParameter(BaseRoute):
         # The optimal tree is the cheapest state where all terminals are connected.
         for final_state, final_cost in current_layer.items():
             final_connectivity = final_state[0]
-            if self._is_fully_connected(final_connectivity, [self.id_map[loc] for loc in visited_locs]):
+            if self._is_fully_connected(final_connectivity, list(visited_loc_ids)):
                 if final_cost < min_cost:
                     min_cost = final_cost
                     w_opt = final_state
@@ -121,11 +124,11 @@ class FixedParameter(BaseRoute):
         res = w_opt, min_cost
         self.route_length = min_cost
 
-        route = self._turn_states_into_route(res, visited_locs)
+        route = self._turn_states_into_route(res, list(visited_loc_ids))
 
         return route
 
-    def _turn_states_into_route(self, state_cost_tuple, visited_locs):
+    def _turn_states_into_route(self, state_cost_tuple, visited_loc_ids):
         """
         Converts the final state and cost into a route representation.
 
@@ -139,7 +142,7 @@ class FixedParameter(BaseRoute):
         connections = state[0]
 
         # Get the representative int for the dummy location so we can trace all connections from there
-        representation_int = connections[self.id_map[visited_locs[0]]]
+        representation_int = connections[visited_loc_ids[0]]
         res = []
 
         for i in range(len(connections)):
@@ -157,7 +160,7 @@ class FixedParameter(BaseRoute):
             # Calculate if there is a location existing to the left
             left_exists = None
 
-            is_picking_location = current_loc in visited_locs
+            is_picking_location = self.id_map[current_loc] in visited_loc_ids
 
             if not is_picking_location and current_loc[0] > 0:
                 left_exists = current_loc[0] - 3, current_loc[1]
@@ -227,14 +230,14 @@ class FixedParameter(BaseRoute):
         # If the loop completes, all points share the same representative.
         return True
 
-    def check_validity(self, current_edge, w, visited_locs, horizontal, last_edge):
+    def check_validity(self, current_edge, w, location_ids, horizontal, last_edge):
         """
         Checks if a given state 'w' represents a valid partial tour.
         This function prunes invalid branches from the search space.
 
         Args:
             w (tuple): The state tuple (connectivity, degrees) to check.
-            visited_locs (list): List of picking locations in the current aisle.
+            location_ids (set): Set of picking location ids in the current aisle.
             horizontal (bool): Indicates if the current aisle is horizontal.
             current_edge: The tuple representing the current aisle being processed.
             last_edge: The tuple representing the last aisle being processed.
@@ -253,12 +256,11 @@ class FixedParameter(BaseRoute):
                 return False
 
         # check that a degree is either 0 or even
-        for degree in degrees:
-            if degree % 2 != 0:
-                return False
+        #for degree in degrees:
+        #    if degree % 2 != 0:
+        #        return False
 
         # 2: Location Constraint: All the locations in the current edge must be visited.
-        location_ids = sorted([self.id_map[loc] for loc in visited_locs])
         for loc_id in location_ids:
             if degrees[loc_id] == 0:
                 return False
@@ -519,25 +521,32 @@ class FixedParameter(BaseRoute):
         x2, y2 = edge[1]
         return abs(x1 - x2) + abs(y1 - y2)
 
-    def get_all_aisles_in_order(self):
+    def get_all_relevant_aisles_in_order(self):
         """
         Generates all valid walkable aisle segments for a given warehouse layout.
         Returns a list of edges, where each edge is represented by its start and end coordinates and is sorted in an
         alternating manner from left to right, bottom to top.
         """
-        num_isles = self.grid.num_isles
-        num_rows = self.grid.num_rows
+
+        max_location_right = max([loc['x'] for loc in self.locations])
+        max_location_bottom = max([loc['y'] for loc in self.locations])
+
+        max_shelf_rows_to_compute_y = math.ceil(max_location_bottom / 7)
+        max_shelf_columns_to_compute_x = math.ceil(max_location_right / 3)
+
+        #num_isles = self.grid.num_isles
+        #num_rows = self.grid.num_rows
         all_edges = []
 
         # Iterate through the grid from left to right, aisle by aisle.
-        for isle in range(num_isles + 1):
-            for row in range(num_rows):
+        for isle in range(max_shelf_columns_to_compute_x + 1):
+            for row in range(max_shelf_rows_to_compute_y):
                 start_node = (isle * 3, row * 7)
                 end_node = (isle * 3, (row + 1) * 7)
                 all_edges.append((start_node, end_node))
 
-            if isle < num_isles:
-                for row in range(num_rows + 1):
+            if isle < max_shelf_columns_to_compute_x:
+                for row in range(max_shelf_rows_to_compute_y + 1):
                     start_node = (isle * 3, row * 7)
                     end_node = ((isle + 1) * 3, row * 7)
                     all_edges.append((start_node, end_node))
