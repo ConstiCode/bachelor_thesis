@@ -1,3 +1,4 @@
+"""
 import math
 
 # Todo do I even need this class? Or can I just use the function in the WareHouseGrid class?
@@ -11,7 +12,36 @@ class Location:
         self.x, self.y = self._calculate_coordinates()
 
     def _calculate_coordinates(self):
-        """
+
+
+        # calculate the y coordinate
+        shelf_number = math.ceil(self.location_number / 12)
+        shelf_row = math.ceil(shelf_number / self.shelf_columns)
+
+        shelf_start_coordinate = (shelf_row - 1) * 7 + 1
+
+        offset_y = (self.location_number % 6) - 1 if self.location_number % 6 else 5
+        y = shelf_start_coordinate + offset_y
+
+        # calculate the x coordinate
+        # shelf_column is the number that x would be if all the shelf's would be next to each other without any aisles to walk
+        shelf_column = math.ceil(self.location_number / 6)
+        x = shelf_column + shelf_number - 1
+        x %= self.shelf_columns * 3
+        return x, y
+
+    def as_dict(self):
+        return {
+            'location_number': self.location_number,
+            'x': self.x,
+            'y': self.y
+        }
+
+    def as_tuple(self):
+        return self.x, self.y
+"""
+
+"""
             Turns a location number into a given coordinate for the html canvas grid. This allows dynamic changes of the grid.
             Only works for location > 0.
 
@@ -46,29 +76,3 @@ class Location:
             13  | 42 | 48 |  | 54 | 60 |  | 66 | 72 |
                 +----+----+  +----+----+  +----+----+
         """
-
-        # calculate the y coordinate
-        shelf_number = math.ceil(self.location_number / 12)
-        shelf_row = math.ceil(shelf_number / self.shelf_columns)
-
-        shelf_start_coordinate = (shelf_row - 1) * 7 + 1
-
-        offset_y = (self.location_number % 6) - 1 if self.location_number % 6 else 5
-        y = shelf_start_coordinate + offset_y
-
-        # calculate the x coordinate
-        # shelf_column is the number that x would be if all the shelf's would be next to each other without any aisles to walk
-        shelf_column = math.ceil(self.location_number / 6)
-        x = shelf_column + shelf_number - 1
-        x %= self.shelf_columns * 3
-        return x, y
-
-    def as_dict(self):
-        return {
-            'location_number': self.location_number,
-            'x': self.x,
-            'y': self.y
-        }
-
-    def as_tuple(self):
-        return self.x, self.y
