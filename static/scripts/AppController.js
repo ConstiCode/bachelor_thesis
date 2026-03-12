@@ -94,14 +94,19 @@ export default class AppController {
             }
 
             // call service
-            const routeData = await this.api.calculateRoutes(this.model, this.model.stockLocations, algorithms);
+            const response = await this.api.calculateRoutes(this.model, this.model.stockLocations, algorithms);
 
-            this.model.setRoutes(routeData);
+            this.model.setRoutes(response.routes);
 
             // render results
             this.renderer.drawScene(this.model);
             if (algorithms.length > 1) {
                 this.modalView.show(this.model);
+            }
+
+            // show errors for failed algorithms alongside successful results
+            if (response.error_message && response.error_message.length > 0) {
+                this.mainView.showError(response.error_message.join("\n"));
             }
 
         } catch (error) {

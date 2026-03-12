@@ -14,6 +14,7 @@ SOLVERS = {
     'fixedParameter': FixedParameter,
 }
 
+
 @app.route('/')
 def display_warehouse_floor_plan():
     return render_template('index.html')
@@ -29,16 +30,21 @@ def generate_test_locations():
     warehouse_config = info.get('warehouse_config', False)
 
     if not warehouse_config:
-        return jsonify([])
+        return jsonify({"error_message": "There is no warehouse config! Please choose a valid warehouse config."}), 400
 
     grid = WareHouseGrid(int(warehouse_config.get('numColumns')), int(warehouse_config.get('numCrossings')))
     number_of_locations = grid.total_locations
+
+    if product_count > number_of_locations:
+        return jsonify(
+            {
+                "error_message": "You are trying to generate more stock locations than the warehouse layout you generated."}), 400
 
     random_numbers = random.sample(range(1, number_of_locations + 1), product_count)
 
     locations = [grid.location_to_coordinate(loc_num) for loc_num in random_numbers]
 
-    return jsonify(locations)
+    return jsonify(locations), 200
 
 
 @app.route('/calculate-route', methods=['POST'])
@@ -54,9 +60,14 @@ def calculate_route():
 
     packing_table = {'x': 0, 'y': 0}
 
+    if not all([algorithms, locations, warehouse, number_of_shelf_columns, number_of_rows]):
+        return jsonify({
+            "error_message": "Some of the variables are not set please ensure you have everything configured correctly."}), 400
+
     grid = WareHouseGrid(number_of_shelf_columns, number_of_rows)
 
     routes = {}
+    error_messages = []
     for algorithm in algorithms:
         route_solver_class = SOLVERS.get(algorithm)
 
@@ -64,18 +75,22 @@ def calculate_route():
             continue
 
         solver = route_solver_class(grid, locations, packing_table)
+        try:
+            start_time = time.perf_counter()
+            route = solver.compute_route()
+            end_time = time.perf_counter()
 
-        start_time = time.perf_counter()
-        route = solver.compute_route()
-        end_time = time.perf_counter()
+            routes[algorithm] = {
+                "route": route,
+                "length": solver.route_length,
+                "computation_time": (end_time - start_time) * 1000
+            }
 
-        routes[algorithm] = {
-            "route": route,
-            "length": solver.route_length,
-            "computation_time": (end_time - start_time) * 1000
-        }
+        except:
+            error_messages.append(f"In the calculation of the route for algorithm {algorithm} failed.")
 
-    return jsonify(routes)
+    return jsonify({"routes": routes,
+                    "error_message": error_messages}), 200
 
 
 if __name__ == '__main__':
