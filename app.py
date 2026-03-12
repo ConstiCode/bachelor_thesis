@@ -3,7 +3,6 @@ import random
 import time
 from routes import Christofides
 from routes.fixed_parameter import FixedParameter
-from routes.fixed_parameter_2 import FixedParameter2
 from warehouse.grid import WareHouseGrid
 from routes.nearest_neighbor import NearestNeighbor
 
@@ -13,13 +12,7 @@ SOLVERS = {
     'nearestNeighbor': NearestNeighbor,
     'christofides': Christofides,
     'fixedParameter': FixedParameter,
-    'fixedParameter2': FixedParameter2
 }
-# Todo check christofides route length calculation there is a bug there
-# Todo check the drawing function of fixed parameter there is a bug there
-# Todo versuche diese Wegprunen noch zu verstehen
-
-
 
 @app.route('/')
 def display_warehouse_floor_plan():
@@ -65,9 +58,6 @@ def calculate_route():
 
     routes = {}
     for algorithm in algorithms:
-        if algorithm == 'fixedParameter':
-            algorithm = 'fixedParameter2'
-
         route_solver_class = SOLVERS.get(algorithm)
 
         if not route_solver_class:
