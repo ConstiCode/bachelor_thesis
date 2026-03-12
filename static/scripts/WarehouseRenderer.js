@@ -50,11 +50,7 @@ export default class WarehouseRenderer {
         // draw routes
         for (const [algoName, data] of Object.entries(model.routes)) {
             const color = (algoName === 'christofides') ? 'yellow' : (algoName === 'nearestNeighbor') ? 'red' : 'pink';
-            if (algoName === 'fixedParameter') {
-                this._drawRouteSegments(this.ctx, data.route, color, this.translator);
-            } else {
-                this._drawWarehouseRoute(this.ctx, data.route, color, this.translator);
-            }
+            this._drawWarehouseRoute(this.ctx, data.route, color, this.translator);
         }
     }
 
@@ -76,11 +72,9 @@ export default class WarehouseRenderer {
         this._drawPickingMarkers(ctx, {stockLocations: locations}, modalTranslator); // Pass a light-weight model
 
         const color = (routeName === 'christofides') ? 'yellow' : (routeName === 'nearestNeighbor') ? 'red' : 'pink';
-        if (routeName === 'fixedParameter') {
-            this._drawRouteSegments(ctx, routeData.route, color, modalTranslator);
-        } else {
-            this._drawWarehouseRoute(ctx, routeData.route, color, modalTranslator);
-        }
+
+        this._drawWarehouseRoute(ctx, routeData.route, color, modalTranslator);
+
     }
 
     _drawShelves(ctx, model, translator) {
@@ -151,45 +145,5 @@ export default class WarehouseRenderer {
         ctx.strokeStyle = color;
         ctx.lineWidth = 3;
         ctx.stroke();
-    }
-
-    _drawRouteSegments(ctx, segments, color, translator) {
-        if (!segments || segments.length === 0) {
-            return;
-        }
-
-        // Set the drawing style once
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 3;
-
-        // Loop through the segments array, taking two points at a time
-        // i will be 0, 2, 4, ...
-        for (let i = 0; i < segments.length; i += 2) {
-
-            // Make sure we have a pair of points
-            if (i + 1 >= segments.length) {
-                // This happens if there's an odd number of points
-                break;
-            }
-
-            // Get the start and end points for *this segment*
-            const point1 = segments[i];
-            const point2 = segments[i + 1];
-
-            // Convert grid coordinates to pixel coordinates
-            const start = translator.gridToPixel({x: point1[0], y: point1[1]});
-            const end = translator.gridToPixel({x: point2[0], y: point2[1]});
-
-            // --- This is the important part ---
-
-            // 1. Start a new, completely separate path
-            ctx.beginPath();
-            // 2. Move the "pen" to the start of this segment
-            ctx.moveTo(start.x, start.y);
-            // 3. Draw a line to the end of this segment
-            ctx.lineTo(end.x, end.y);
-            // 4. Render this segment to the canvas immediately
-            ctx.stroke();
-        }
     }
 }
