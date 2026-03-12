@@ -20,3 +20,16 @@ class BaseRoute(ABC):
         :return: int
         """
         return sum(self.grid.calculate_warehouse_distance(p1, p2) for p1, p2 in zip(route_sequence, route_sequence[1:]))
+
+    def compute_and_set_route_length(self, visit_sequence: list[tuple[int, int]]):
+        """
+        Unified route length calculation for all algorithms.
+        Takes an ordered sequence of (x, y) location coordinates (in shelf/grid coordinate space)
+        representing the visit order, computes the total warehouse distance using
+        calculate_warehouse_distance, and sets self.route_length.
+        :param visit_sequence: Ordered list of (x, y) tuples in shelf coordinate space.
+        """
+        self.route_length = sum(
+            self.grid.calculate_warehouse_distance(p1, p2)
+            for p1, p2 in zip(visit_sequence, visit_sequence[1:])
+        )

@@ -29,7 +29,7 @@ class Christofides(BaseRoute):
 
         route = self.create_round_route_from_edges(route)
 
-        self.route_length = self.compute_route_length(route)
+        self.compute_and_set_route_length(route)
 
         a_star = AStar(self.grid.grid)
         full_route = a_star.calculate_a_star_route([{'x': x, 'y': y} for (x, y) in route])

@@ -104,7 +104,7 @@ class WareHouseGrid:
 
     def calculate_warehouse_distance(self,
                                      location_1: tuple[int, int],
-                                     location_2: tuple[int, int]) -> int:
+                                         location_2: tuple[int, int]) -> int:
         """
         Calculates the travel distance between two locations in a warehouse grid
         with vertical aisles and horizontal access lanes.
