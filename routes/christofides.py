@@ -10,11 +10,13 @@ class Christofides(BaseRoute):
     use_blossom = True
 
     def compute_route(self):
+        self.locations = list(self.locations)  # Defensive copy to avoid mutating shared state
         self.locations.append(self.start_pos)
 
         edges = self._get_mst_weights()
         # use prims algorithm to get the minimum spanning tree
-        mst = self._get_prim_mst(edges[1:], edges[0][1])
+        start_node = edges[0][1]
+        mst = self._get_prim_mst(edges, start_node)
 
         # get the odd degree nodes
         odd_nodes = self._get_odd_nodes(mst)
@@ -162,8 +164,11 @@ class Christofides(BaseRoute):
             graph[u].append(v)
             graph[v].append(u)
 
-        # Hierholzer's algorithm for Eulerian circuit
-        start = edges[0][0]
+        # Hierholzer's algorithm for Eulerian circuit — start at depot if available
+        if self.start_pos:
+            start = (self.start_pos['x'], self.start_pos['y'])
+        else:
+            start = edges[0][0]
         stack = [start]
         circuit = []
 

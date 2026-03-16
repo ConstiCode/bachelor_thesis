@@ -3,7 +3,7 @@ import random
 import time
 import csv
 import io
-import signal
+import threading
 from routes import Christofides
 from routes.fixed_parameter import FixedParameter
 from warehouse.grid import WareHouseGrid
@@ -104,27 +104,34 @@ def calculate_route():
                     "error_message": error_messages}), 200
 
 
-class TimeoutError(Exception):
+class SolverTimeout(Exception):
     pass
 
 
 def _run_with_timeout(func, timeout_seconds):
-    """Runs a function with a timeout. Returns (result, elapsed_ms) or raises TimeoutError."""
-    def handler(signum, frame):
-        raise TimeoutError()
+    """Runs a function with a timeout using a thread. Returns (result, elapsed_ms) or raises SolverTimeout."""
+    result_container = [None]
+    error_container = [None]
 
-    old_handler = signal.signal(signal.SIGALRM, handler)
-    signal.alarm(timeout_seconds)
-    try:
-        start = time.perf_counter()
-        result = func()
-        elapsed_ms = (time.perf_counter() - start) * 1000
-        signal.alarm(0)
-        return result, elapsed_ms
-    except TimeoutError:
-        raise
-    finally:
-        signal.signal(signal.SIGALRM, old_handler)
+    def target():
+        try:
+            result_container[0] = func()
+        except Exception as e:
+            error_container[0] = e
+
+    start = time.perf_counter()
+    thread = threading.Thread(target=target)
+    thread.start()
+    thread.join(timeout=timeout_seconds)
+    elapsed_ms = (time.perf_counter() - start) * 1000
+
+    if thread.is_alive():
+        raise SolverTimeout()
+
+    if error_container[0] is not None:
+        raise error_container[0]
+
+    return result_container[0], elapsed_ms
 
 
 @app.route('/benchmark', methods=['POST'])
@@ -210,27 +217,21 @@ def run_benchmark():
             return jsonify({"error": f"warehouse_configs[{i}]: numColumns and numCrossings must be at least 1."}), 400
         parsed_configs.append((cols, rows))
 
-    # Validate product counts against each warehouse config
-    for cols, rows in parsed_configs:
-        total_locations = cols * rows * 12
-        for pc in product_counts:
-            if pc > total_locations:
-                return jsonify({
-                    "error": f"product_count {pc} exceeds total locations ({total_locations}) "
-                             f"for warehouse {cols}x{rows}."
-                }), 400
-
-    # --- Run benchmark ---
+    # --- Run benchmark (skip invalid combinations instead of rejecting entire request) ---
     results = []
+    skipped = []
     packing_table = {'x': 0, 'y': 0}
-    total_combinations = len(parsed_configs) * len(product_counts) * iterations
-    completed = 0
 
     for cols, rows in parsed_configs:
         grid = WareHouseGrid(cols, rows)
         total_locations = grid.total_locations
 
         for product_count in product_counts:
+            if product_count > total_locations:
+                skipped.append(
+                    f"{product_count} products > {total_locations} locations in {cols}x{rows} warehouse"
+                )
+                continue
             for iteration in range(iterations):
                 seed = base_seed + iteration
                 seeded_random = random.Random(seed)
@@ -254,7 +255,7 @@ def run_benchmark():
                             "seed": seed,
                             "status": "ok"
                         })
-                    except TimeoutError:
+                    except SolverTimeout:
                         results.append({
                             "algorithm": algorithm,
                             "num_columns": cols,
@@ -279,14 +280,12 @@ def run_benchmark():
                             "status": f"error: {str(e)}"
                         })
 
-                completed += 1
-
     _last_benchmark_results = results
 
     return jsonify({
         "results": results,
-        "total_combinations": total_combinations,
-        "total_runs": len(results)
+        "total_runs": len(results),
+        "skipped": skipped
     }), 200
 
 

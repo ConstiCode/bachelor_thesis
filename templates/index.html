@@ -1,6 +1,7 @@
 <html lang="en">
 <head>
     <title>Home</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
     <script src="{{ url_for('static', filename='scripts/main.js') }}" type="module" defer></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles/style.css') }}">
 </head>
@@ -42,20 +43,22 @@
             <!-- Chart area -->
             <div class="charts-grid">
                 <div class="chart-card">
-                    <h3>Route Length vs. Product Count</h3>
-                    <canvas id="chartRouteLength"></canvas>
+                    <div id="plotRouteLength" class="plotly-chart"></div>
                 </div>
                 <div class="chart-card">
-                    <h3>Computation Time vs. Product Count</h3>
-                    <canvas id="chartComputationTime"></canvas>
+                    <div id="plotComputationTime" class="plotly-chart"></div>
                 </div>
                 <div class="chart-card">
-                    <h3>Optimality Gap vs. Product Count</h3>
-                    <canvas id="chartOptimalityGap"></canvas>
+                    <div id="plotOptimalityGap" class="plotly-chart"></div>
                 </div>
                 <div class="chart-card">
-                    <h3>Route Length by Warehouse Config</h3>
-                    <canvas id="chartByWarehouse"></canvas>
+                    <div id="plotBoxPlot" class="plotly-chart"></div>
+                </div>
+                <div class="chart-card">
+                    <div id="plotByWarehouse" class="plotly-chart"></div>
+                </div>
+                <div class="chart-card">
+                    <div id="plotHeatmap" class="plotly-chart"></div>
                 </div>
             </div>
 
