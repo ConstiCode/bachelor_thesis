@@ -56,13 +56,15 @@ export default class AppController {
         // api call for the stock locations
         try {
             const productCount = this.mainView.getLocationCount();
+            const locationGenerationSeed = this.mainView.getLocationGenerationSeed();
+
             if (productCount < 1) {
                 this.mainView.showError("Please enter a valid product count.");
                 return;
             }
 
             // call flask service to generate locations
-            const locations = await this.api.generateLocations(this.model, productCount);
+            const locations = await this.api.generateLocations(this.model, productCount, locationGenerationSeed);
 
             // update model with new locations
             this.model.setStockLocations(locations);

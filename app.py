@@ -26,6 +26,7 @@ def generate_test_locations():
 
     info = request.get_json()
     product_count = int(info.get('product_count', 0))
+    location_generation_seed = info.get('location_generation_seed', False)
 
     warehouse_config = info.get('warehouse_config', False)
 
@@ -40,7 +41,11 @@ def generate_test_locations():
             {
                 "error_message": "You are trying to generate more stock locations than the warehouse layout you generated."}), 400
 
-    random_numbers = random.sample(range(1, number_of_locations + 1), product_count)
+    if not location_generation_seed:
+        random_numbers = random.sample(range(1, number_of_locations + 1), product_count)
+    else:
+        seeded_random = random.Random(location_generation_seed)
+        random_numbers = seeded_random.sample(range(1, number_of_locations + 1), product_count)
 
     locations = [grid.location_to_coordinate(loc_num) for loc_num in random_numbers]
 

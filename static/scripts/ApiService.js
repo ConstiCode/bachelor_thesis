@@ -1,12 +1,13 @@
 export default class ApiService {
 
-    async generateLocations(model, productCount) {
+    async generateLocations(model, productCount, locationGenerationSeed) {
         const response = await fetch('/generate-test-locations', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 warehouse_config: model.getConfigForAPI(),
-                product_count: productCount
+                product_count: productCount,
+                location_generation_seed: locationGenerationSeed,
             })
         });
 

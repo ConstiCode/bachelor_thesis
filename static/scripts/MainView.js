@@ -19,6 +19,7 @@ export default class MainView {
         this.aisleInput = document.getElementById("warehouseAisleCount");
         this.crossingInput = document.getElementById("warehouseCrossingCount");
         this.locationCountInput = document.getElementById("locationCount");
+        this.locationGenerationSeed = document.getElementById("locationGenerationSeed");
 
         this.changeFloorPlanBtn = document.getElementById("changeWarehouseFloorPlan");
         this.generateLocationsBtn = document.getElementById("generateLocationsButton");
@@ -52,6 +53,14 @@ export default class MainView {
      */
     getLocationCount() {
         return this.locationCountInput.value;
+    }
+
+    /**
+     * Gets the seed for the location generation.
+     * @returns {number}
+     */
+    getLocationGenerationSeed() {
+        return this.locationGenerationSeed.value;
     }
 
     /**
