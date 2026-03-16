@@ -16,40 +16,64 @@ def a_star():
     return WareHouseGrid(num_isles=3, num_rows=2)
 
 def test_same_aisle_distance(warehouse):
-    # Two locations in the same aisle
-    dist = warehouse.calculate_warehouse_distance(1, 6)  # vertically aligned
+    # Two locations in the same aisle vertically aligned
+    coord_1 = warehouse.location_to_coordinate(1)
+    coord_2 = warehouse.location_to_coordinate(6)
+
+    coord_1_tuple = (coord_1.get('x'), coord_1.get('y'))
+    coord_2_tuple = (coord_2.get('x'), coord_2.get('y'))
+
+    dist = warehouse.calculate_warehouse_distance(coord_1_tuple, coord_2_tuple)
+
     assert dist > 0
     # Should equal Manhattan distance since they're in the same aisle
-    coord1 = warehouse._turn_location_coordinate_to_route_loc(warehouse.location_to_coordinate(1))
-    coord2 = warehouse._turn_location_coordinate_to_route_loc(warehouse.location_to_coordinate(6))
-    assert dist == manhattan_distance(coord1, coord2)
+
 
 
 def test_same_row_requires_crossing(warehouse):
     # Two locations on the same row but in different aisles
-    dist = warehouse.calculate_warehouse_distance(1, 13)
+    coord_1 = warehouse.location_to_coordinate(1)
+    coord_2 = warehouse.location_to_coordinate(13)
+
+    coord_1_tuple = (coord_1.get('x'), coord_1.get('y'))
+    coord_2_tuple = (coord_2.get('x'), coord_2.get('y'))
+
+    dist = warehouse.calculate_warehouse_distance(coord_1_tuple, coord_2_tuple)
     assert dist > 0
     # Should be greater than pure Manhattan distance, since it must go via crossing
-    coord1 = warehouse._turn_location_coordinate_to_route_loc(warehouse.location_to_coordinate(1))
-    coord2 = warehouse._turn_location_coordinate_to_route_loc(warehouse.location_to_coordinate(13))
-    assert dist >= manhattan_distance(coord1, coord2)
+    assert dist >= manhattan_distance(coord_1_tuple, coord_2_tuple)
 
 
 def test_different_aisles_go_up(warehouse):
     # Location below needs to go up to cross
-    dist = warehouse.calculate_warehouse_distance(6, 20)
+    coord_1 = warehouse.location_to_coordinate(6)
+    coord_2 = warehouse.location_to_coordinate(20)
+
+    coord_1_tuple = (coord_1.get('x'), coord_1.get('y'))
+    coord_2_tuple = (coord_2.get('x'), coord_2.get('y'))
+
+    dist = warehouse.calculate_warehouse_distance(coord_1_tuple, coord_2_tuple)
     assert dist > 0
 
 
 def test_different_aisles_go_down(warehouse):
     # Location above needs to go down to cross
-    dist = warehouse.calculate_warehouse_distance(18, 2)
+    coord_1 = warehouse.location_to_coordinate(18)
+    coord_2 = warehouse.location_to_coordinate(2)
+
+    coord_1_tuple = (coord_1.get('x'), coord_1.get('y'))
+    coord_2_tuple = (coord_2.get('x'), coord_2.get('y'))
+
+    dist = warehouse.calculate_warehouse_distance(coord_1_tuple, coord_2_tuple)
     assert dist > 0
 
 
 def test_same_location(warehouse):
     # Distance to itself must be zero
-    assert warehouse.calculate_warehouse_distance(1, 1) == 0
+    coord_1 = warehouse.location_to_coordinate(1)
+    coord_1_tuple = (coord_1.get('x'), coord_1.get('y'))
+
+    assert warehouse.calculate_warehouse_distance(coord_1_tuple, coord_1_tuple) == 0
 
 def test_warehouse_vs_a_star(warehouse):
     test_pairs = [
@@ -66,20 +90,23 @@ def test_warehouse_vs_a_star(warehouse):
     astar = AStar(warehouse.grid)
 
     for loc1, loc2 in test_pairs:
-        # Calculate warehouse distance
-        warehouse_dist = warehouse.calculate_warehouse_distance(loc1, loc2)
-
         # Convert locations to coordinates
         coord1 = warehouse.location_to_coordinate(loc1)
         coord2 = warehouse.location_to_coordinate(loc2)
 
-        # A* path distance
+        coord1_tuple = (coord1.get('x'), coord1.get('y'))
+        coord2_tuple = (coord2.get('x'), coord2.get('y'))
+
+        # Calculate warehouse distance
+        warehouse_dist = warehouse.calculate_warehouse_distance(coord1_tuple, coord2_tuple)
+
+        # A* path distance (A* expects dicts with 'x'/'y' keys)
         full_path = astar.calculate_a_star_route([coord1, coord2])
         a_star_dist = len(full_path) - 1 if full_path else None
 
         # Basic checks
         assert a_star_dist is not None  # path exists
-        assert warehouse_dist == a_star_dist  # warehouse distance should not underestimate A*
+        assert warehouse_dist == a_star_dist  # warehouse distance should match A*
 
 def test_warehouse_vs_a_star_random(warehouse):
     # Total locations in the warehouse
@@ -93,14 +120,17 @@ def test_warehouse_vs_a_star_random(warehouse):
                     for _ in range(50)]
 
     for loc1, loc2 in random_pairs:
-        # Calculate warehouse distance
-        warehouse_dist = warehouse.calculate_warehouse_distance(loc1, loc2)
-
         # Convert locations to coordinates
         coord1 = warehouse.location_to_coordinate(loc1)
         coord2 = warehouse.location_to_coordinate(loc2)
 
-        # Calculate A* path
+        coord1_tuple = (coord1.get('x'), coord1.get('y'))
+        coord2_tuple = (coord2.get('x'), coord2.get('y'))
+
+        # Calculate warehouse distance
+        warehouse_dist = warehouse.calculate_warehouse_distance(coord1_tuple, coord2_tuple)
+
+        # Calculate A* path (A* expects dicts with 'x'/'y' keys)
         full_path = astar.calculate_a_star_route([coord1, coord2])
         a_star_dist = len(full_path) - 1 if full_path else None
 
