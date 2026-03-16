@@ -37,4 +37,30 @@ export default class ApiService {
 
         return await response.json();
     }
+
+    async runBenchmark(productCounts, warehouseConfigs, algorithms, iterations, baseSeed, timeoutSeconds) {
+        const response = await fetch('/benchmark', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                product_counts: productCounts,
+                warehouse_configs: warehouseConfigs,
+                algorithms: algorithms,
+                iterations: iterations,
+                base_seed: baseSeed,
+                timeout_seconds: timeoutSeconds
+            })
+        });
+
+        if (!response.ok) {
+            const body = await response.json();
+            throw new Error(body.error || `HTTP error! status: ${response.status}`);
+        }
+
+        return await response.json();
+    }
+
+    exportBenchmarkCsv() {
+        window.location.href = '/benchmark/export';
+    }
 }

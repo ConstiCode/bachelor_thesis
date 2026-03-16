@@ -3,6 +3,7 @@ import WarehouseRenderer from './WarehouseRenderer.js';
 import ApiService from './ApiService.js';
 import ModalView from "./ModalView.js";
 import MainView from "./MainView.js";
+import BenchmarkView from "./BenchmarkView.js";
 
 export default class AppController {
     constructor() {
@@ -12,7 +13,8 @@ export default class AppController {
 
         // --- VIEWS ---
         this.mainView = new MainView();
-        this.modalView = new ModalView(this.renderer)
+        this.modalView = new ModalView(this.renderer);
+        this.benchmarkView = new BenchmarkView();
         const initialConfig = this.mainView.getFloorPlanConfig();
         this.model = new WarehouseModel(initialConfig.aisles, initialConfig.crossings);
 
@@ -20,6 +22,8 @@ export default class AppController {
         this.mainView.bindChangeFloorPlan(this._handleFloorPlanChange.bind(this));
         this.mainView.bindGenerateLocations(this._handleGenerateLocations.bind(this));
         this.mainView.bindCalculateRoute(this._handleCalculateRoute.bind(this));
+        this.benchmarkView.bindRunBenchmark(this._handleRunBenchmark.bind(this));
+        this.benchmarkView.bindExportCsv(this._handleExportCsv.bind(this));
 
         // --- INITIALIZATION ---
         this._handleFloorPlanChange();
@@ -114,5 +118,63 @@ export default class AppController {
         } catch (error) {
             this.mainView.showError(error.message);
         }
+    }
+
+    /**
+     * Controller handler for running a benchmark.
+     */
+    async _handleRunBenchmark() {
+        const configs = this.benchmarkView.getWarehouseConfigs();
+        const productCounts = this.benchmarkView.getProductCounts();
+        const algorithms = this.benchmarkView.getSelectedAlgorithms();
+        const iterations = this.benchmarkView.getIterations();
+        const baseSeed = this.benchmarkView.getBaseSeed();
+        const timeout = this.benchmarkView.getTimeout();
+
+        // Validate inputs
+        if (configs.length === 0) {
+            this.mainView.showError("Please add at least one valid warehouse configuration.");
+            return;
+        }
+        if (productCounts.length === 0) {
+            this.mainView.showError("Please enter at least one valid product count.");
+            return;
+        }
+        if (algorithms.length === 0) {
+            this.mainView.showError("Please select at least one algorithm.");
+            return;
+        }
+        if (iterations < 1) {
+            this.mainView.showError("Iterations must be at least 1.");
+            return;
+        }
+
+        this.mainView.clearData();
+        this.benchmarkView.setRunning(true);
+        this.benchmarkView.showProgress();
+
+        const totalCombinations = configs.length * productCounts.length * iterations;
+        this.benchmarkView.setProgress(0, totalCombinations);
+
+        try {
+            const response = await this.api.runBenchmark(
+                productCounts, configs, algorithms, iterations, baseSeed, timeout
+            );
+
+            this.benchmarkView.setProgress(totalCombinations, totalCombinations);
+            this.benchmarkView.showResults(response.results);
+        } catch (error) {
+            this.benchmarkView.hideProgress();
+            this.mainView.showError(error.message);
+        } finally {
+            this.benchmarkView.setRunning(false);
+        }
+    }
+
+    /**
+     * Controller handler for CSV export.
+     */
+    _handleExportCsv() {
+        this.api.exportBenchmarkCsv();
     }
 }

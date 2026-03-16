@@ -12,57 +12,198 @@
     <div id="error-container" class="error-message"></div>
     <canvas id="warehouseCanvas" width="200" height="100" style="border:1px solid #000000;"></canvas>
 
+    <!-- Benchmark results area (hidden by default, replaces canvas in benchmark mode) -->
+    <div id="benchmarkResultsArea" class="hidden">
+        <!-- Progress indicator -->
+        <div id="benchmarkProgress" class="hidden">
+            <div class="progress-card">
+                <div class="spinner"></div>
+                <h2 id="progressTitle">Running Benchmark...</h2>
+                <p id="progressDetail">Combination 0 / 0</p>
+                <div class="progress-bar-container">
+                    <div id="progressBar" class="progress-bar" style="width: 0%"></div>
+                </div>
+                <p id="progressPercent" class="progress-percent">0%</p>
+            </div>
+        </div>
+
+        <!-- Results view (shown after benchmark completes) -->
+        <div id="benchmarkResultsView" class="hidden">
+            <div class="results-header">
+                <h2>Benchmark Results</h2>
+                <button id="exportCsvButton" class="export-btn">Export CSV</button>
+            </div>
+
+            <!-- Summary statistics cards -->
+            <div id="summaryCards" class="summary-cards">
+                <!-- Filled dynamically by JS -->
+            </div>
+
+            <!-- Chart area -->
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>Route Length vs. Product Count</h3>
+                    <canvas id="chartRouteLength"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Computation Time vs. Product Count</h3>
+                    <canvas id="chartComputationTime"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Optimality Gap vs. Product Count</h3>
+                    <canvas id="chartOptimalityGap"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3>Route Length by Warehouse Config</h3>
+                    <canvas id="chartByWarehouse"></canvas>
+                </div>
+            </div>
+
+            <!-- Detailed results table -->
+            <div class="results-table-container">
+                <h3>Detailed Results</h3>
+                <div class="table-scroll">
+                    <table id="benchmarkResultsTable">
+                        <thead>
+                        <tr>
+                            <th>Algorithm</th>
+                            <th>Columns</th>
+                            <th>Crossings</th>
+                            <th>Products</th>
+                            <th>Iteration</th>
+                            <th>Route Length</th>
+                            <th>Time (ms)</th>
+                            <th>Seed</th>
+                        </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <!-- right side -->
     <div id="inputSection">
         <h1>Travelling Salesman Problem in Warehouse Networks</h1>
-        <div id="warehouseFloorPlanSection">
-            <label for="warehouseAisleCount">Number of Aisles:</label>
-            <input type="number" id="warehouseAisleCount" placeholder="Number of Aisles" value="2"/>
-            <label for="warehouseCrossingCount">Number of Rows:</label>
-            <input type="number" id="warehouseCrossingCount" placeholder="Number of Crossings" value="2"/>
-            <button id="changeWarehouseFloorPlan">Change Warehouse Floorplan</button>
+
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="singleRun">Single Run</button>
+            <button class="tab-btn" data-tab="benchmark">Benchmark</button>
         </div>
-        <div id="testLocationsSection">
-            <label for="locationCount">Product Count</label>
-            <input type="number" id="locationCount" name="locationCount" placeholder="Number of Locations"/>
-            <label for="locationGenerationSeed">Random Seed</label>
-            <input type="number" id="locationGenerationSeed" name="locationGenerationSeed" placeholder="Optional Random Seed">
-            <button id="generateLocationsButton" type="submit">Generate To Be Visited Stock Locations</button>
-        </div>
-        <div id="algorithmSelection">
-            <div>
-                <label>
-                    <input type="checkbox" id="greedyHeuristic" name="selections" value="christofides">
-                    Christofides Heuristic
-                </label>
-                <label>
-                    <input type="checkbox" id="NearestNeighborHeuristic" name="selections" value="nearestNeighbor">
-                    Nearest Neighbor Heuristic
-                </label>
-                <label>
-                    <input type="checkbox" id="fixedParameterAlgorithm" name="selections" value="fixedParameter">
-                    Fixed Parameter Algorithm
-                </label>
+
+        <!-- ==================== SINGLE RUN TAB ==================== -->
+        <div id="tab-singleRun" class="tab-content active">
+            <div id="warehouseFloorPlanSection">
+                <label for="warehouseAisleCount">Number of Aisles:</label>
+                <input type="number" id="warehouseAisleCount" placeholder="Number of Aisles" value="2"/>
+                <label for="warehouseCrossingCount">Number of Rows:</label>
+                <input type="number" id="warehouseCrossingCount" placeholder="Number of Crossings" value="2"/>
+                <button id="changeWarehouseFloorPlan">Change Warehouse Floorplan</button>
             </div>
-            <button id="triggerRouteCalculationButton">Run Algorithm</button>
-            <div id="routeInfo" style="margin-top: 10px; font-weight: bold; color: darkgreen;">
-                <!-- Todo Style this table -->
+            <div id="testLocationsSection">
+                <label for="locationCount">Product Count</label>
+                <input type="number" id="locationCount" name="locationCount" placeholder="Number of Locations"/>
+                <label for="locationGenerationSeed">Random Seed</label>
+                <input type="number" id="locationGenerationSeed" name="locationGenerationSeed"
+                       placeholder="Optional Random Seed">
+                <button id="generateLocationsButton" type="submit">Generate To Be Visited Stock Locations</button>
+            </div>
+            <div id="algorithmSelection">
+                <div>
+                    <label>
+                        <input type="checkbox" id="greedyHeuristic" name="selections" value="christofides">
+                        Christofides Heuristic
+                    </label>
+                    <label>
+                        <input type="checkbox" id="NearestNeighborHeuristic" name="selections" value="nearestNeighbor">
+                        Nearest Neighbor Heuristic
+                    </label>
+                    <label>
+                        <input type="checkbox" id="fixedParameterAlgorithm" name="selections" value="fixedParameter">
+                        Fixed Parameter Algorithm
+                    </label>
+                </div>
+                <button id="triggerRouteCalculationButton">Run Algorithm</button>
+                <div id="routeInfo" style="margin-top: 10px; font-weight: bold; color: darkgreen;">
+                    <!-- Todo Style this table -->
+                </div>
+            </div>
+
+            <div id="locationTableContainer">
+                <h2>Stock Locations</h2>
+                <table id="locationTable">
+                    <thead>
+                    <tr>
+                        <th>Location Number</th>
+                        <th>X Coordinate</th>
+                        <th>Y Coordinate</th>
+                    </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
             </div>
         </div>
 
-        <div id="locationTableContainer">
-            <h2>Stock Locations</h2>
-            <table id="locationTable">
-                <thead>
-                <tr>
-                    <th>Location Number</th>
-                    <th>X Coordinate</th>
-                    <th>Y Coordinate</th>
-                </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+        <!-- ==================== BENCHMARK TAB ==================== -->
+        <div id="tab-benchmark" class="tab-content">
+            <div class="benchmark-section">
+                <h3 class="section-title">Warehouse Configurations</h3>
+                <p class="section-hint">Add one or more warehouse layouts to test.</p>
+                <div id="warehouseConfigList" class="config-list">
+                    <!-- Dynamically filled, starts with one default row -->
+                </div>
+                <button id="addWarehouseConfig" class="add-btn">+ Add Configuration</button>
+            </div>
+
+            <div class="benchmark-section">
+                <h3 class="section-title">Product Counts</h3>
+                <p class="section-hint">Comma-separated list of pick-list sizes to test.</p>
+                <input type="text" id="benchmarkProductCounts" class="text-input"
+                       placeholder="e.g. 5, 10, 15, 20, 25, 30" value="5, 10, 15, 20, 25, 30"/>
+            </div>
+
+            <div class="benchmark-section">
+                <h3 class="section-title">Algorithms</h3>
+                <div class="checkbox-group">
+                    <label>
+                        <input type="checkbox" name="benchmarkAlgorithm" value="nearestNeighbor" checked>
+                        Nearest Neighbor
+                    </label>
+                    <label>
+                        <input type="checkbox" name="benchmarkAlgorithm" value="christofides" checked>
+                        Christofides
+                    </label>
+                    <label>
+                        <input type="checkbox" name="benchmarkAlgorithm" value="fixedParameter" checked>
+                        Fixed Parameter (MILP)
+                    </label>
+                </div>
+            </div>
+
+            <div class="benchmark-section benchmark-params">
+                <h3 class="section-title">Parameters</h3>
+                <label for="benchmarkIterations">Iterations per combination</label>
+                <input type="number" id="benchmarkIterations" value="30" min="1"/>
+                <label for="benchmarkBaseSeed">Base Seed</label>
+                <input type="number" id="benchmarkBaseSeed" value="42"/>
+                <label for="benchmarkTimeout">Timeout per algorithm (s)</label>
+                <input type="number" id="benchmarkTimeout" value="300" min="1"/>
+            </div>
+
+            <!-- Combination preview -->
+            <div class="benchmark-section">
+                <div id="combinationPreview" class="combination-preview">
+                    <span class="preview-label">Total combinations:</span>
+                    <span id="totalCombinations" class="preview-value">0</span>
+                    <span class="preview-label">Total runs:</span>
+                    <span id="totalRuns" class="preview-value">0</span>
+                </div>
+            </div>
+
+            <button id="runBenchmarkButton" class="run-benchmark-btn">Run Benchmark</button>
         </div>
 
         <div id="comparison-modal" class="modal-overlay">

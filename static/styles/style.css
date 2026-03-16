@@ -364,3 +364,541 @@ button:active {
     /* Verhindert, dass es flex-grow erhält */
     flex-shrink: 0;
 }
+
+
+/* ========================================================================
+   TAB NAVIGATION
+   ======================================================================== */
+
+.tab-navigation {
+    display: flex;
+    gap: 4px;
+    background-color: #3a3a3c;
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    background-color: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    /* Override the grid-column span from generic button styles */
+    grid-column: auto;
+    margin-top: 0;
+}
+
+.tab-btn:hover {
+    color: rgba(255, 255, 255, 0.8);
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+    background-color: #0a84ff;
+    color: #ffffff;
+}
+
+/* Tab content visibility */
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+
+/* ========================================================================
+   BENCHMARK TAB — INPUT SECTIONS
+   ======================================================================== */
+
+.benchmark-section {
+    margin-top: 16px;
+    background-color: #3a3a3c;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid #4a4a4e;
+}
+
+.benchmark-section .section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #f5f5f7;
+    margin: 0 0 4px 0;
+}
+
+.benchmark-section .section-hint {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin: 0 0 12px 0;
+}
+
+/* Params section uses grid like the single-run sections */
+.benchmark-params {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: center;
+}
+
+.benchmark-params .section-title {
+    grid-column: 1 / -1;
+}
+
+/* Text inputs (for comma-separated values) */
+.text-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #4a4a4e;
+    border-radius: 6px;
+    font-size: 1em;
+    background-color: #2c2c2e;
+    color: #f5f5f7;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+.text-input:focus {
+    outline: none;
+    border-color: #0a84ff;
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.3);
+}
+
+/* Checkbox group in benchmark */
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1em;
+    color: #f5f5f7;
+}
+
+
+/* ========================================================================
+   WAREHOUSE CONFIG LIST (dynamic rows)
+   ======================================================================== */
+
+.config-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.config-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.config-row input[type="number"] {
+    flex: 1;
+    min-width: 0; /* allow shrinking in flex */
+}
+
+.config-row .config-label {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+    white-space: nowrap;
+}
+
+.config-row .remove-config-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    grid-column: auto;
+    margin-top: 0;
+}
+
+.config-row .remove-config-btn:hover {
+    color: #ff453a;
+    background-color: rgba(255, 69, 58, 0.1);
+}
+
+.add-btn {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background-color: transparent;
+    color: #0a84ff;
+    border: 1px dashed #0a84ff;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    grid-column: auto;
+}
+
+.add-btn:hover {
+    background-color: rgba(10, 132, 255, 0.1);
+}
+
+
+/* ========================================================================
+   COMBINATION PREVIEW
+   ======================================================================== */
+
+.combination-preview {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 4px 12px;
+    justify-content: center;
+}
+
+.preview-label {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+    text-align: right;
+}
+
+.preview-value {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #0a84ff;
+}
+
+
+/* ========================================================================
+   RUN BENCHMARK BUTTON
+   ======================================================================== */
+
+.run-benchmark-btn {
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #0a84ff, #0070e0);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 1.05em;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    transition: all 0.2s ease;
+    grid-column: auto;
+}
+
+.run-benchmark-btn:hover {
+    background: linear-gradient(135deg, #3399ff, #0a84ff);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(10, 132, 255, 0.3);
+}
+
+.run-benchmark-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.run-benchmark-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+
+/* ========================================================================
+   UTILITY
+   ======================================================================== */
+
+.hidden {
+    display: none !important;
+}
+
+
+/* ========================================================================
+   BENCHMARK RESULTS AREA (left side, replaces canvas)
+   ======================================================================== */
+
+#benchmarkResultsArea {
+    flex: 1;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: #1d1d1f;
+    padding: 32px;
+    box-sizing: border-box;
+}
+
+
+/* --- Progress Indicator --- */
+
+#benchmarkProgress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+#benchmarkProgress.hidden {
+    display: none !important;
+}
+
+.progress-card {
+    text-align: center;
+    background-color: #2c2c2e;
+    border: 1px solid #3a3a3c;
+    border-radius: 14px;
+    padding: 48px 64px;
+    max-width: 480px;
+}
+
+.progress-card h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #f5f5f7;
+    margin: 20px 0 8px 0;
+}
+
+.progress-card p {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+/* Spinner animation */
+.spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid #3a3a3c;
+    border-top-color: #0a84ff;
+    border-radius: 50%;
+    margin: 0 auto;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Progress bar */
+.progress-bar-container {
+    width: 100%;
+    height: 6px;
+    background-color: #3a3a3c;
+    border-radius: 3px;
+    margin-top: 24px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #0a84ff, #3399ff);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.progress-percent {
+    font-size: 0.85rem;
+    color: #0a84ff;
+    font-weight: 600;
+    margin-top: 8px;
+}
+
+
+/* --- Results View --- */
+
+.results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.results-header h2 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: #f5f5f7;
+    margin: 0;
+}
+
+.export-btn {
+    padding: 10px 20px;
+    background-color: #30d158; /* Apple green */
+    color: #1d1d1f;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    grid-column: auto;
+    margin-top: 0;
+}
+
+.export-btn:hover {
+    background-color: #34d65c;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(48, 209, 88, 0.3);
+}
+
+/* Summary statistic cards */
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.summary-card {
+    background-color: #2c2c2e;
+    border: 1px solid #3a3a3c;
+    border-radius: 10px;
+    padding: 16px 20px;
+}
+
+.summary-card .card-label {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+}
+
+.summary-card .card-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #f5f5f7;
+}
+
+.summary-card .card-sub {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 2px;
+}
+
+/* Algorithm-specific accent colors */
+.summary-card.accent-nn { border-left: 3px solid #ff453a; }
+.summary-card.accent-christofides { border-left: 3px solid #ffd60a; }
+.summary-card.accent-fixed { border-left: 3px solid #bf5af2; }
+.summary-card.accent-info { border-left: 3px solid #0a84ff; }
+
+
+/* --- Charts Grid --- */
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.chart-card {
+    background-color: #2c2c2e;
+    border: 1px solid #3a3a3c;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.chart-card h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 0 16px 0;
+}
+
+.chart-card canvas {
+    width: 100%;
+    height: 250px;
+    background-color: #1d1d1f;
+    border-radius: 6px;
+}
+
+
+/* --- Results Table --- */
+
+.results-table-container {
+    background-color: #2c2c2e;
+    border: 1px solid #3a3a3c;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.results-table-container h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #f5f5f7;
+    padding: 16px 20px;
+    margin: 0;
+    border-bottom: 1px solid #3a3a3c;
+}
+
+.table-scroll {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+#benchmarkResultsTable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+#benchmarkResultsTable th {
+    background-color: #3a3a3c;
+    color: rgba(255, 255, 255, 0.7);
+    text-align: left;
+    font-weight: 600;
+    padding: 10px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+#benchmarkResultsTable td {
+    padding: 8px 16px;
+    border-bottom: 1px solid #3a3a3c;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+#benchmarkResultsTable tbody tr:hover {
+    background-color: #3a3a3c;
+}
+
+/* Scrollbar styling for results area */
+#benchmarkResultsArea::-webkit-scrollbar,
+.table-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+
+#benchmarkResultsArea::-webkit-scrollbar-track,
+.table-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#benchmarkResultsArea::-webkit-scrollbar-thumb,
+.table-scroll::-webkit-scrollbar-thumb {
+    background-color: #4a4a4e;
+    border-radius: 4px;
+}
+
+#benchmarkResultsArea::-webkit-scrollbar-thumb:hover,
+.table-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: #5a5a5e;
+}
+
+
+/* ========================================================================
+   RESPONSIVE — Charts stack on narrow screens
+   ======================================================================== */
+
+@media (max-width: 1200px) {
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+}

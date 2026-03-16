@@ -28,12 +28,65 @@ export default class MainView {
         this.locationTableBody = document.querySelector("#locationTable tbody");
         this.routeInfoContainer = document.getElementById("routeInfo");
 
-
         this.errorContainer = document.getElementById("error-container");
+
+        // Tab elements
+        this.tabButtons = document.querySelectorAll(".tab-btn");
+        this.tabContents = document.querySelectorAll(".tab-content");
+        this.canvas = document.getElementById("warehouseCanvas");
+        this.benchmarkResultsArea = document.getElementById("benchmarkResultsArea");
+
+        this._initTabs();
 
         if (!this.locationTableBody || !this.errorContainer) {
             console.error("MainView failed to find critical DOM elements.");
         }
+    }
+
+    /**
+     * Initializes tab switching between Single Run and Benchmark modes.
+     */
+    _initTabs() {
+        this.tabButtons.forEach(btn => {
+            btn.addEventListener("click", () => {
+                const targetTab = btn.dataset.tab;
+                this._switchTab(targetTab);
+            });
+        });
+    }
+
+    /**
+     * Switches the active tab and toggles the main content area.
+     * @param {string} tabName - "singleRun" or "benchmark"
+     */
+    _switchTab(tabName) {
+        // Update tab buttons
+        this.tabButtons.forEach(btn => {
+            btn.classList.toggle("active", btn.dataset.tab === tabName);
+        });
+
+        // Update tab content panels
+        this.tabContents.forEach(content => {
+            content.classList.toggle("active", content.id === `tab-${tabName}`);
+        });
+
+        // Toggle left-side area: canvas for single run, results area for benchmark
+        if (tabName === "benchmark") {
+            this.canvas.classList.add("hidden");
+            this.benchmarkResultsArea.classList.remove("hidden");
+        } else {
+            this.canvas.classList.remove("hidden");
+            this.benchmarkResultsArea.classList.add("hidden");
+        }
+    }
+
+    /**
+     * Returns the currently active tab name.
+     * @returns {string} "singleRun" or "benchmark"
+     */
+    getActiveTab() {
+        const activeBtn = document.querySelector(".tab-btn.active");
+        return activeBtn ? activeBtn.dataset.tab : "singleRun";
     }
 
     /**
