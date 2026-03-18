@@ -126,7 +126,11 @@
                     </label>
                     <label>
                         <input type="checkbox" id="fixedParameterAlgorithm" name="selections" value="fixedParameter">
-                        Fixed Parameter Algorithm
+                        Fixed Parameter (DP)
+                    </label>
+                    <label>
+                        <input type="checkbox" id="scfsPlusAlgorithm" name="selections" value="scfsPlus">
+                        SCFS+ (MILP)
                     </label>
                 </div>
                 <button id="triggerRouteCalculationButton">Run Algorithm</button>
@@ -181,7 +185,11 @@
                     </label>
                     <label>
                         <input type="checkbox" name="benchmarkAlgorithm" value="fixedParameter" checked>
-                        Fixed Parameter (MILP)
+                        Fixed Parameter (DP)
+                    </label>
+                    <label>
+                        <input type="checkbox" name="benchmarkAlgorithm" value="scfsPlus">
+                        SCFS+ (MILP)
                     </label>
                 </div>
             </div>

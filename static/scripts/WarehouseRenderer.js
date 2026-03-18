@@ -49,7 +49,7 @@ export default class WarehouseRenderer {
 
         // draw routes
         for (const [algoName, data] of Object.entries(model.routes)) {
-            const color = (algoName === 'christofides') ? 'yellow' : (algoName === 'nearestNeighbor') ? 'red' : 'pink';
+            const color = (algoName === 'christofides') ? 'yellow' : (algoName === 'nearestNeighbor') ? 'red' : (algoName === 'scfsPlus') ? 'cyan' : 'pink';
             this._drawWarehouseRoute(this.ctx, data.route, color, this.translator);
         }
     }
@@ -71,15 +71,18 @@ export default class WarehouseRenderer {
 
         this._drawPickingMarkers(ctx, {stockLocations: locations}, modalTranslator); // Pass a light-weight model
 
-        const color = (routeName === 'christofides') ? 'yellow' : (routeName === 'nearestNeighbor') ? 'red' : 'pink';
+        const color = (routeName === 'christofides') ? 'yellow' : (routeName === 'nearestNeighbor') ? 'red' : (routeName === 'scfsPlus') ? 'cyan' : 'pink';
 
         this._drawWarehouseRoute(ctx, routeData.route, color, modalTranslator);
 
     }
 
     _drawShelves(ctx, model, translator) {
-        const shelfPixelWidth = WarehouseModel.SHELF_GRID_WIDTH * translator.horizontalGridSize;
-        const shelfPixelHeight = WarehouseModel.SHELF_GRID_HEIGHT * translator.verticalGridSize;
+        const cellW = translator.horizontalGridSize;
+        const cellH = translator.verticalGridSize;
+        const shelfPixelWidth = WarehouseModel.SHELF_GRID_WIDTH * cellW;
+        const shelfPixelHeight = WarehouseModel.SHELF_GRID_HEIGHT * cellH;
+        const padding = Math.max(1, Math.min(cellW, cellH) * 0.08);
 
         for (let r = 0; r < model.numCrossings; r++) {
             for (let c = 0; c < model.numColumns; c++) {
@@ -87,15 +90,53 @@ export default class WarehouseRenderer {
                 let gridX = c * WarehouseModel.SHELF_TOTAL_WIDTH + WarehouseModel.AISLE_GRID_WIDTH;
                 let gridY = r * WarehouseModel.SHELF_TOTAL_HEIGHT + WarehouseModel.AISLE_GRID_HEIGHT;
 
-                // We need a different gridToPixel method for top-left corners, not centers
-                // For now, I will use the offset directly.
-                let pixelX = translator.offsetX + (gridX * translator.horizontalGridSize);
-                let pixelY = translator.offsetY + (gridY * translator.verticalGridSize);
+                let pixelX = translator.offsetX + (gridX * cellW);
+                let pixelY = translator.offsetY + (gridY * cellH);
 
+                // Shadow
+                ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+                ctx.fillRect(pixelX + 2, pixelY + 2, shelfPixelWidth, shelfPixelHeight);
+
+                // Shelf base
+                ctx.fillStyle = "#3a3a4a";
+                ctx.fillRect(pixelX, pixelY, shelfPixelWidth, shelfPixelHeight);
+
+                // Individual compartments (6 rows × 2 columns)
+                for (let row = 0; row < WarehouseModel.SHELF_GRID_HEIGHT; row++) {
+                    for (let col = 0; col < WarehouseModel.SHELF_GRID_WIDTH; col++) {
+                        const cx = pixelX + col * cellW + padding;
+                        const cy = pixelY + row * cellH + padding;
+                        const cw = cellW - padding * 2;
+                        const ch = cellH - padding * 2;
+
+                        // Gradient per compartment for 3D depth effect
+                        const grad = ctx.createLinearGradient(cx, cy, cx, cy + ch);
+                        grad.addColorStop(0, "#6b8cae");
+                        grad.addColorStop(0.5, "#4a6d8c");
+                        grad.addColorStop(1, "#3a5a75");
+
+                        ctx.fillStyle = grad;
+                        ctx.fillRect(cx, cy, cw, ch);
+
+                        // Inner highlight (top edge)
+                        ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+                        ctx.fillRect(cx, cy, cw, Math.max(1, ch * 0.15));
+                    }
+                }
+
+                // Center divider between the two shelf columns
+                const dividerX = pixelX + cellW - 0.5;
+                ctx.strokeStyle = "#2a2a3a";
+                ctx.lineWidth = Math.max(1, cellW * 0.06);
                 ctx.beginPath();
-                ctx.rect(pixelX, pixelY, shelfPixelWidth, shelfPixelHeight);
-                ctx.fillStyle = "lightblue";
-                ctx.fill();
+                ctx.moveTo(dividerX, pixelY);
+                ctx.lineTo(dividerX, pixelY + shelfPixelHeight);
+                ctx.stroke();
+
+                // Outer border
+                ctx.strokeStyle = "#555";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(pixelX, pixelY, shelfPixelWidth, shelfPixelHeight);
             }
         }
     }
@@ -103,20 +144,29 @@ export default class WarehouseRenderer {
     _drawPackingTable(ctx, model, translator) {
         const rect = translator.getPackingTablePixelRect(model);
 
-        ctx.beginPath();
-        ctx.rect(rect.x, rect.y, rect.w, rect.h);
-        ctx.fillStyle = "lightblue";
-        ctx.fill();
+        // Shadow
+        ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+        ctx.fillRect(rect.x + 2, rect.y + 2, rect.w, rect.h);
 
-        let fontSize = Math.floor(45 / model.numColumns); // Still a bit magic, but better
-        ctx.font = `${fontSize}px Arial`;
-        ctx.fillStyle = "black";
+        // Table surface with gradient
+        const grad = ctx.createLinearGradient(rect.x, rect.y, rect.x, rect.y + rect.h);
+        grad.addColorStop(0, "#e8a845");
+        grad.addColorStop(1, "#c4872e");
+        ctx.fillStyle = grad;
+        ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+
+        // Border
+        ctx.strokeStyle = "#8a5e1a";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+
+        // Label
+        let fontSize = Math.max(8, Math.floor(45 / model.numColumns));
+        ctx.font = `bold ${fontSize}px Arial`;
+        ctx.fillStyle = "#fff";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-
-        let textX = rect.x + rect.w / 2;
-        let textY = rect.y + rect.h / 2;
-        ctx.fillText("Packing Table", textX, textY);
+        ctx.fillText("Depot", rect.x + rect.w / 2, rect.y + rect.h / 2);
     }
 
     _drawPickingMarkers(ctx, model, translator) {

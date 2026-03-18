@@ -1,7 +1,7 @@
 import pytest
 import networkx as nx
 from warehouse.grid import WareHouseGrid
-from routes.fixed_parameter import FixedParameter
+from routes.scfs_plus import ScfsPlus as FixedParameter
 
 
 # ============================================================

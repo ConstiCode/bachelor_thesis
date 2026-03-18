@@ -6,6 +6,7 @@ import io
 import threading
 from routes import Christofides
 from routes.fixed_parameter import FixedParameter
+from routes.scfs_plus import ScfsPlus
 from warehouse.grid import WareHouseGrid
 from routes.nearest_neighbor import NearestNeighbor
 
@@ -15,6 +16,8 @@ SOLVERS = {
     'nearestNeighbor': NearestNeighbor,
     'christofides': Christofides,
     'fixedParameter': FixedParameter,
+    'scfsPlus': ScfsPlus,
+
 }
 
 # Stores the last benchmark result for CSV export
@@ -85,7 +88,7 @@ def calculate_route():
         if not route_solver_class:
             continue
 
-        solver = route_solver_class(grid, locations, packing_table)
+        solver = route_solver_class(grid, list(locations), dict(packing_table))
         try:
             start_time = time.perf_counter()
             route = solver.compute_route()
