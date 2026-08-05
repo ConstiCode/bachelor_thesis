@@ -3,7 +3,8 @@ import random
 import time
 import csv
 import io
-import threading
+import multiprocessing as mp
+import resource
 from routes import Christofides
 from routes.fixed_parameter import FixedParameter
 from routes.scfs_plus import ScfsPlus
@@ -107,34 +108,53 @@ def calculate_route():
                     "error_message": error_messages}), 200
 
 
-class SolverTimeout(Exception):
-    pass
+# Speicherlimit pro Solver-Lauf. Verhindert, dass ein einzelner FP-Lauf bei
+# hohem h den gesamten Rechner-RAM auffrisst (OOM). Laeufe, die das Limit
+# sprengen, werden als status="memory" markiert.
+MEM_LIMIT_BYTES = 12 * 1024 ** 3  # 12 GB
 
 
-def _run_with_timeout(func, timeout_seconds):
-    """Runs a function with a timeout using a thread. Returns (result, elapsed_ms) or raises SolverTimeout."""
-    result_container = [None]
-    error_container = [None]
+def _solver_worker(q, mem_limit, solver_class, grid, locations, packing_table):
+    """Laeuft im Kindprozess: setzt das Speicherlimit, berechnet die Route
+    und gibt Ergebnis bzw. Fehlerstatus ueber die Queue zurueck."""
+    try:
+        resource.setrlimit(resource.RLIMIT_AS, (mem_limit, mem_limit))
+    except (ValueError, OSError):
+        pass
+    try:
+        start = time.perf_counter()
+        solver = solver_class(grid, locations, packing_table)
+        solver.compute_route()
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        q.put({"status": "ok", "route_length": solver.route_length, "elapsed_ms": elapsed_ms})
+    except MemoryError:
+        q.put({"status": "memory"})
+    except Exception as e:
+        q.put({"status": "error", "msg": f"{type(e).__name__}: {e}"})
 
-    def target():
-        try:
-            result_container[0] = func()
-        except Exception as e:
-            error_container[0] = e
 
-    start = time.perf_counter()
-    thread = threading.Thread(target=target)
-    thread.start()
-    thread.join(timeout=timeout_seconds)
-    elapsed_ms = (time.perf_counter() - start) * 1000
+def run_solver_capped(solver_class, grid, locations, packing_table,
+                      timeout_seconds, mem_limit=MEM_LIMIT_BYTES):
+    """Fuehrt compute_route in einem eigenen Prozess aus: harter Timeout-Kill
+    UND Speicherlimit. Der Speicher wird nach jedem Lauf vollstaendig
+    freigegeben. Gibt ein dict mit status / route_length / elapsed_ms zurueck."""
+    ctx = mp.get_context("fork")
+    q = ctx.Queue()
+    p = ctx.Process(target=_solver_worker,
+                    args=(q, mem_limit, solver_class, grid, locations, packing_table))
+    p.start()
+    p.join(timeout_seconds)
 
-    if thread.is_alive():
-        raise SolverTimeout()
+    if p.is_alive():
+        p.terminate()
+        p.join()
+        return {"status": "timeout"}
 
-    if error_container[0] is not None:
-        raise error_container[0]
-
-    return result_container[0], elapsed_ms
+    try:
+        return q.get(timeout=10)
+    except Exception:
+        # Prozess ohne Ergebnis beendet (z.B. hart am Speicherlimit gestorben)
+        return {"status": "memory"}
 
 
 @app.route('/benchmark', methods=['POST'])
@@ -243,45 +263,30 @@ def run_benchmark():
 
                 for algorithm in algorithms:
                     solver_class = SOLVERS[algorithm]
-                    solver = solver_class(grid, locations, packing_table)
+                    outcome = run_solver_capped(
+                        solver_class, grid, locations, packing_table, timeout_seconds
+                    )
 
-                    try:
-                        route, elapsed_ms = _run_with_timeout(solver.compute_route, timeout_seconds)
-                        results.append({
-                            "algorithm": algorithm,
-                            "num_columns": cols,
-                            "num_crossings": rows,
-                            "num_products": product_count,
-                            "iteration": iteration + 1,
-                            "route_length": solver.route_length,
-                            "computation_time_ms": round(elapsed_ms, 3),
-                            "seed": seed,
-                            "status": "ok"
-                        })
-                    except SolverTimeout:
-                        results.append({
-                            "algorithm": algorithm,
-                            "num_columns": cols,
-                            "num_crossings": rows,
-                            "num_products": product_count,
-                            "iteration": iteration + 1,
-                            "route_length": None,
-                            "computation_time_ms": None,
-                            "seed": seed,
-                            "status": "timeout"
-                        })
-                    except Exception as e:
-                        results.append({
-                            "algorithm": algorithm,
-                            "num_columns": cols,
-                            "num_crossings": rows,
-                            "num_products": product_count,
-                            "iteration": iteration + 1,
-                            "route_length": None,
-                            "computation_time_ms": None,
-                            "seed": seed,
-                            "status": f"error: {str(e)}"
-                        })
+                    row = {
+                        "algorithm": algorithm,
+                        "num_columns": cols,
+                        "num_crossings": rows,
+                        "num_products": product_count,
+                        "iteration": iteration + 1,
+                        "seed": seed,
+                    }
+                    if outcome["status"] == "ok":
+                        row["route_length"] = outcome["route_length"]
+                        row["computation_time_ms"] = round(outcome["elapsed_ms"], 3)
+                        row["status"] = "ok"
+                    else:
+                        row["route_length"] = None
+                        row["computation_time_ms"] = None
+                        if outcome["status"] in ("timeout", "memory"):
+                            row["status"] = outcome["status"]
+                        else:
+                            row["status"] = f"error: {outcome.get('msg', '')}"
+                    results.append(row)
 
     _last_benchmark_results = results
 
