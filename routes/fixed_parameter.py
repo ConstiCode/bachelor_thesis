@@ -27,10 +27,19 @@ class FixedParameter(BaseRoute):
         else:
             self.h = 1
 
-        # Depot route_loc is used during route reconstruction to add the
-        # walk between the actual depot and crossing (0,0).
-        self._depot_route_loc = self.grid._turn_location_coordinate_to_route_loc(
-            (start_pos['x'], start_pos['y']))
+        # Das Depot liegt auf dem Quergang und ist damit selbst ein Kreuzungs-
+        # knoten des Sweep-Graphen. Es wird deshalb NICHT auf eine Nachbarzelle
+        # abgebildet - die DP erzwingt genau diesen Knoten (siehe is_depot in
+        # _horizontal_transitions bzw. die Endbedingung in compute_route).
+        self._depot_route_loc = (start_pos['x'], start_pos['y'])
+
+        # Anzahl der Gangspalten im Sweep. Bei nur einer Spalte entstehen keine
+        # horizontalen Kanten, weshalb die Depot-Bedingung dort nicht ueber
+        # _horizontal_transitions greifen kann (siehe compute_route).
+        self._num_aisle_columns = len(
+            {e[0][0] for e in self.all_walkable_edges}
+            | {e[1][0] for e in self.all_walkable_edges}) \
+            if self.all_walkable_edges else 0
 
     # ------------------------------------------------------------------
     # Helper methods
@@ -284,6 +293,12 @@ class FixedParameter(BaseRoute):
             active = {c for p, c in zip(parities, components) if p > 0}
             if len(active) > 1:
                 continue
+            # Bei nur einer Gangspalte gibt es keine horizontalen Kanten, also
+            # kann is_depot in _horizontal_transitions nicht greifen. Ohne diese
+            # Bedingung liefert die DP eine Tour, die das Depot gar nicht
+            # enthaelt (offener Weg statt Rundtour).
+            if self._num_aisle_columns <= 1 and parities[0] == 0:
+                continue
             if cost < min_cost:
                 min_cost = cost
                 best_final_state = state
@@ -386,12 +401,11 @@ class FixedParameter(BaseRoute):
 
         For regular edges: append the endpoint node.
         For self-loops: append the turnaround point, then back to the node.
-        The first and last waypoints are replaced with the depot's route_loc,
-        since the picker starts/ends there, not at crossing (0,0).
-        """
-        depot_rl = self._depot_route_loc
 
-        # Build raw waypoint path starting at (0,0)
+        Das Depot ist der Kreuzungsknoten (0,0) selbst, deshalb beginnt und
+        endet der Rohpfad ohne Zusatzbehandlung dort.
+        """
+        # Build raw waypoint path starting at the depot crossing (0,0)
         raw = [(0, 0)]
         for u, v, key in circuit:
             if u == v:  # self-loop: detour to turnaround point and back
@@ -402,18 +416,6 @@ class FixedParameter(BaseRoute):
             else:
                 raw.append(v)
         # raw[0] == raw[-1] == (0,0)
-
-        # Replace start/end (0,0) with depot_rl where axis-aligned,
-        # otherwise insert depot_rl to keep all segments on aisles.
-        if len(raw) > 1 and (depot_rl[0] == raw[1][0] or depot_rl[1] == raw[1][1]):
-            raw[0] = depot_rl
-        else:
-            raw.insert(0, depot_rl)
-
-        if len(raw) > 1 and (depot_rl[0] == raw[-2][0] or depot_rl[1] == raw[-2][1]):
-            raw[-1] = depot_rl
-        else:
-            raw.append(depot_rl)
 
         # Expand waypoints to step-by-step grid path so the frontend
         # can draw the route along aisles (not diagonal lines).
@@ -435,6 +437,15 @@ class FixedParameter(BaseRoute):
         for i in range(1, len(waypoints)):
             ax, ay = waypoints[i - 1]
             bx, by = waypoints[i]
+            if ax != bx and ay != by:
+                # Darf nicht vorkommen: zwei aufeinanderfolgende Wegpunkte
+                # liegen immer auf demselben Gang oder Quergang. Frueher wurde
+                # so ein Paar stillschweigend als horizontales Segment
+                # expandiert - der Pfad endete dann an der falschen Zelle und
+                # die Laenge war zu klein.
+                raise AssertionError(
+                    f"Wegpunkte {(ax, ay)} und {(bx, by)} liegen weder auf "
+                    f"derselben Spalte noch auf derselben Zeile.")
             if ax == bx:  # vertical segment
                 step = 1 if by > ay else -1
                 for y in range(ay + step, by + step, step):

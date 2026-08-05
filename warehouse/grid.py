@@ -149,6 +149,14 @@ class WareHouseGrid:
         x = coordinate[0]
         y = coordinate[1]
 
+        # Das Depot (0,0) ist der Packtisch und liegt selbst auf einem Gang,
+        # ist also bereits begehbar. Es darf NICHT wie ein Regalplatz auf eine
+        # Nachbarzelle abgebildet werden, sonst startet und endet die Tour bei
+        # (1,0) statt bei (0,0) und ist um 2 Einheiten zu kurz. AStar
+        # (a_star.py) behandelt (0,0) genauso als Sonderfall.
+        if x == 0 and y == 0:
+            return 0, 0
+
         if self.grid[y][x + 1]:
             return x + 1, y
         else:
