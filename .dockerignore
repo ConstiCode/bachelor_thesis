@@ -1,0 +1,10 @@
+.venv
+__pycache__
+*.pyc
+*.csv
+.git
+.idea
+tests
+img.png
+img_1.png
+cv.pdf
