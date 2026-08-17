@@ -1,5 +1,6 @@
 import math
 from utils.distances import manhattan_distance
+from utils.path_expansion import expand_waypoints
 
 
 class WareHouseGrid:
@@ -144,6 +145,60 @@ class WareHouseGrid:
 
         return min(total_dist_via_bottom, total_dist_via_top)
 
+    def construct_warehouse_path(self,
+                                 location_1: tuple[int, int],
+                                 location_2: tuple[int, int]) -> list[tuple[int, int]]:
+        """Konstruiert den begehbaren Gitterpfad zwischen zwei Lagerplaetzen
+        in geschlossener Form, also ohne Suche.
+
+        Spiegelt exakt die Fallunterscheidung von
+        :meth:`calculate_warehouse_distance`. Der Pfad besteht aus hoechstens
+        drei Segmenten:
+
+        1. vertikal in der Startgangspalte zum guenstigeren Quergang
+           (bottom_exit oder top_exit),
+        2. horizontal entlang dieses Quergangs zur Zielgangspalte,
+        3. vertikal in der Zielgangspalte zum Ziel.
+
+        Liegen Start und Ziel in derselben Gangspalte, bleibt nur ein
+        vertikales Segment. Degenerierte Segmente der Laenge 0 (Start liegt
+        schon auf dem Quergang, etwa das Depot (0,0)) fallen weg.
+
+        Es gilt ``len(path) - 1 == calculate_warehouse_distance(loc1, loc2)``.
+
+        :param location_1: Startkoordinate (Regalzelle oder Depot)
+        :param location_2: Zielkoordinate (Regalzelle oder Depot)
+        :return: Liste von (x, y)-Zellen, begehbar und 4-benachbart
+        """
+        start_coord = self._turn_location_coordinate_to_route_loc(location_1)
+        end_coord = self._turn_location_coordinate_to_route_loc(location_2)
+
+        x1, y1 = start_coord
+        x2, y2 = end_coord
+
+        if x1 == x2:
+            # Gangspalten sind auf ihrer ganzen Hoehe begehbar, der rein
+            # vertikale Weg ist also immer gangbar.
+            return expand_waypoints([start_coord, end_coord])
+
+        # Dieselben zwei physischen Alternativen wie in der Distanzformel.
+        cost_to_bottom_exit = y1 % 7
+        bottom_exit_coord = (x1, y1 - cost_to_bottom_exit)
+        total_dist_via_bottom = cost_to_bottom_exit + manhattan_distance(bottom_exit_coord, end_coord)
+
+        cost_to_top_exit = 7 - cost_to_bottom_exit
+        top_exit_coord = (x1, y1 + cost_to_top_exit)
+        total_dist_via_top = cost_to_top_exit + manhattan_distance(top_exit_coord, end_coord)
+
+        # Bei Gleichstand der untere Ausgang, die Laenge ist in beiden Faellen
+        # identisch mit dem min() der Distanzformel.
+        exit_coord = (bottom_exit_coord if total_dist_via_bottom <= total_dist_via_top
+                      else top_exit_coord)
+
+        return expand_waypoints([start_coord,
+                                 exit_coord,
+                                 (x2, exit_coord[1]),
+                                 end_coord])
 
     def _turn_location_coordinate_to_route_loc(self, coordinate: tuple[int, int]) -> tuple[int, int]:
         x = coordinate[0]
