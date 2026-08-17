@@ -1,5 +1,5 @@
 from .base import BaseRoute
-from algorithms import AStar
+from algorithms import ClosedFormRoute
 import heapq
 from collections import Counter
 from collections import defaultdict
@@ -33,8 +33,9 @@ class Christofides(BaseRoute):
 
         self.compute_and_set_route_length(route)
 
-        a_star = AStar(self.grid.grid)
-        full_route = a_star.calculate_a_star_route([{'x': x, 'y': y} for (x, y) in route])
+        # Pfadexpansion in geschlossener Form (siehe ASTAR_ERSATZ.md).
+        router = ClosedFormRoute(self.grid)
+        full_route = router.calculate_closed_form_route([{'x': x, 'y': y} for (x, y) in route])
 
         return full_route
 

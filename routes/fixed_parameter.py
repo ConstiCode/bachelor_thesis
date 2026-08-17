@@ -1,4 +1,5 @@
 from routes.base import BaseRoute
+from utils.path_expansion import expand_waypoints
 import math
 import networkx as nx
 
@@ -429,32 +430,12 @@ class FixedParameter(BaseRoute):
         (they lie on aisles or corridors), so we enumerate each grid cell
         between them. This produces a path identical in format to what
         Christofides and NearestNeighbor return.
-        """
-        if len(waypoints) < 2:
-            return list(waypoints)
 
-        path = [waypoints[0]]
-        for i in range(1, len(waypoints)):
-            ax, ay = waypoints[i - 1]
-            bx, by = waypoints[i]
-            if ax != bx and ay != by:
-                # Darf nicht vorkommen: zwei aufeinanderfolgende Wegpunkte
-                # liegen immer auf demselben Gang oder Quergang. Frueher wurde
-                # so ein Paar stillschweigend als horizontales Segment
-                # expandiert - der Pfad endete dann an der falschen Zelle und
-                # die Laenge war zu klein.
-                raise AssertionError(
-                    f"Wegpunkte {(ax, ay)} und {(bx, by)} liegen weder auf "
-                    f"derselben Spalte noch auf derselben Zeile.")
-            if ax == bx:  # vertical segment
-                step = 1 if by > ay else -1
-                for y in range(ay + step, by + step, step):
-                    path.append((ax, y))
-            else:  # horizontal segment
-                step = 1 if bx > ax else -1
-                for x in range(ax + step, bx + step, step):
-                    path.append((x, ay))
-        return path
+        Die Logik liegt in utils.path_expansion, damit die geschlossene
+        Pfadkonstruktion in WareHouseGrid.construct_warehouse_path dieselbe
+        Expansion benutzt und keine zweite Kopie entsteht.
+        """
+        return expand_waypoints(waypoints)
 
     # ------------------------------------------------------------------
     # Kept helper methods from original implementation

@@ -1,5 +1,5 @@
 from .base import BaseRoute
-from algorithms import AStar
+from algorithms import ClosedFormRoute
 
 
 class NearestNeighbor(BaseRoute):
@@ -15,8 +15,11 @@ class NearestNeighbor(BaseRoute):
         route.append({'x': 0, 'y': 0})
 
         self.compute_and_set_route_length([(d['x'], d['y']) for d in route])
-        a_star = AStar(self.grid.grid)
-        full_route = a_star.calculate_a_star_route(route)
+        # Pfadexpansion in geschlossener Form (siehe ASTAR_ERSATZ.md). Nimmt die
+        # WareHouseGrid selbst, nicht das rohe Gitter, weil sie die
+        # Fallunterscheidung von calculate_warehouse_distance mitbenutzt.
+        router = ClosedFormRoute(self.grid)
+        full_route = router.calculate_closed_form_route(route)
 
         return full_route
 

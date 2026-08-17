@@ -6,26 +6,35 @@ direkt aus derselben Fallunterscheidung, die auch
 `calculate_warehouse_distance` (`warehouse/grid.py:106`) benutzt?
 
 Rolle 2 von A* (unabhängige Kontrolle der Distanzformel) bleibt unberührt.
-`algorithms/a_star.py` ist vollständig erhalten, `tests/test_grid.py` ist
-unverändert, `routes/fixed_parameter.py` wurde nicht angefasst, die bestehenden
-A*-Aufrufe in `routes/nearest_neighbor.py` und `routes/christofides.py` stehen
-weiter.
+`algorithms/a_star.py` ist vollständig erhalten und `tests/test_grid.py` ist
+unverändert.
+
+Der Bericht entstand in zwei Schritten: zuerst der Prototyp mit Belegen
+(Abschnitte 1–5), dann der vollzogene Austausch in den beiden Solvern
+(Abschnitt 6). `calculate_warehouse_distance` ist in beiden Schritten
+unverändert geblieben.
 
 ## Ergebnis in einem Satz
 
 Die Drei-Segment-Hypothese hält, ohne Ausnahme und ohne angeflickte
-Sonderfälle. Die Konstruktion ist ein exakter, suchfreier Ersatz für Rolle 1
-und auf realistischen Layouts 40- bis 110-mal schneller.
+Sonderfälle. Die Konstruktion ist ein exakter, suchfreier Ersatz für Rolle 1,
+auf realistischen Layouts 40- bis 110-mal schneller, und sie ist inzwischen in
+`NearestNeighbor` und `Christofides` an die Stelle von A* getreten.
 
 ## Was implementiert wurde
 
 | Datei | Inhalt |
 | --- | --- |
 | `warehouse/grid.py:148` | `construct_warehouse_path(loc1, loc2)` — die geschlossene Konstruktion, spiegelt die Fallunterscheidung der Distanzformel |
-| `algorithms/closed_form_route.py` | `ClosedFormRoute.calculate_closed_form_route(route)` — additives Gegenstück zu `AStar.calculate_a_star_route`, identisches Ausgabeformat |
-| `utils/path_expansion.py` | `expand_waypoints(waypoints)` — gemeinsame Stelle für die Wegpunkt-Expansion |
+| `algorithms/closed_form_route.py` | `ClosedFormRoute.calculate_closed_form_route(route)` — Gegenstück zu `AStar.calculate_a_star_route`, identisches Ausgabeformat |
+| `utils/path_expansion.py` | `expand_waypoints(waypoints)` — gemeinsame Stelle für die Wegpunkt-Expansion, benutzt von der Konstruktion und von `FixedParameter` |
 | `tests/test_closed_form_path.py` | 13 Tests, Abnahmekriterien 1–5 |
+| `tests/routes/test_route_expansion.py` | 11 Integrationstests für die Solver auf echtem Gitter |
 | `benchmark_path_construction.py` | Laufzeitvergleich, reproduzierbar mit fester Saat |
+
+Umgestellt: `routes/nearest_neighbor.py`, `routes/christofides.py`,
+`routes/fixed_parameter.py` (nur die Delegation der Expansion),
+`tests/routes/test_nearest_neighbor.py`. Details in Abschnitt 6.
 
 `calculate_warehouse_distance` selbst ist unverändert.
 
@@ -210,18 +219,25 @@ Austausch: die Konstruktion wählt reproduzierbar den günstigeren und bei
 Gleichstand den unteren Quergang, die gezeichneten Routen sehen dadurch
 regelmäßiger aus. Im Testlayout 3×2 ist der gezeichnete Pfad ohnehin identisch.
 
-## 6. Empfehlung
+## 6. Der Austausch — durchgeführt
 
-**Für die Frontend-Darstellung ja, der Austausch ist sinnvoll.** Er ist exakt
-längengleich, geometrisch garantiert begehbar, deutlich schneller und macht die
-gezeichnete Route reproduzierbar. Voraussetzung ist die Trennung, die dieser
-Auftrag ohnehin fordert: A* verschwindet aus dem Produktionspfad, bleibt aber
+**Für die Frontend-Darstellung ist der Austausch sinnvoll und ist vollzogen.**
+Er ist exakt längengleich, geometrisch garantiert begehbar, deutlich schneller
+und macht die gezeichnete Route reproduzierbar. Die Trennung, auf der alles
+beruht, bleibt bestehen: A* verschwindet aus dem Produktionspfad, bleibt aber
 die unabhängige Kontrolle im Testpfad.
 
-Der Austausch wird in diesem Auftrag **nicht** durchgeführt. Konkret wäre zu
-ändern:
+Der entscheidende Punkt für die Arbeit: **keine berichtete Kennzahl ändert
+sich.** `route_length` entsteht in `BaseRoute.compute_and_set_route_length`
+(`routes/base.py:24`) aus `calculate_warehouse_distance` über die
+Besuchsreihenfolge, nicht aus dem gezeichneten Pfad. Der Austausch betrifft
+ausschließlich die Expansion für die Visualisierung. Benchmarks,
+Routenlängen und Optimalitätsgaps sind davon unabhängig — `verify_optimality.py`
+bestätigt weiter 182/182.
 
-**`routes/nearest_neighbor.py:18-19`**
+### Was geändert wurde
+
+**`routes/nearest_neighbor.py:18-21`**
 
 ```python
 # vorher
@@ -232,54 +248,87 @@ router = ClosedFormRoute(self.grid)
 full_route = router.calculate_closed_form_route(route)
 ```
 
-Wichtig: `ClosedFormRoute` bekommt die `WareHouseGrid`, nicht das rohe
-2D-Gitter `self.grid.grid`. Der Grund ist Absicht — die Konstruktion benutzt die
+**`routes/christofides.py:36-38`** — dasselbe Muster, die Umhüllung
+`[{'x': x, 'y': y} for (x, y) in route]` bleibt unverändert.
+
+Der Import wechselt in beiden Dateien von `AStar` zu `ClosedFormRoute`.
+`ClosedFormRoute` bekommt die `WareHouseGrid`, nicht das rohe 2D-Gitter
+`self.grid.grid`. Das ist Absicht — die Konstruktion benutzt die
 Fallunterscheidung der Distanzformel mit, statt sie ein drittes Mal nachzubauen.
 Das ist der Preis dafür, keine weitere Kopie der Regal-zu-Gang-Abbildung
 anzulegen.
 
-**`routes/christofides.py:36-37`** — dasselbe Muster, die Umhüllung
-`[{'x': x, 'y': y} for (x, y) in route]` bleibt unverändert.
+**`tests/routes/test_nearest_neighbor.py:37-61`** — an drei Stellen angepasst,
+wie vorhergesagt:
 
-**`tests/routes/test_nearest_neighbor.py:39`** — bricht wie erwartet, an drei
-Stellen:
+- Patchziel `routes.nearest_neighbor.AStar` → `routes.nearest_neighbor.ClosedFormRoute`
+- `assert_called_once_with(grid.grid)` → `assert_called_once_with(grid)`, weil
+  jetzt die Grid-Instanz übergeben wird
+- `calculate_a_star_route` → `calculate_closed_form_route`; die erwartete
+  Besuchsreihenfolge bleibt gleich
 
-- `mocker.patch('routes.nearest_neighbor.AStar')` → Patchziel wird
-  `routes.nearest_neighbor.ClosedFormRoute`.
-- `mock_astar_class.assert_called_once_with(grid.grid)` → `…with(grid)`, weil
-  jetzt die Grid-Instanz übergeben wird, nicht deren `.grid`-Attribut.
-- `…calculate_a_star_route.assert_called_once_with(…)` →
-  `…calculate_closed_form_route.assert_called_once_with(…)`; die erwartete
-  Besuchsreihenfolge bleibt gleich.
+`MockGrid` in dieser Datei brauchte **keine** `construct_warehouse_path`-Methode,
+weil der Router gemockt ist. Ein künftiger Test, der ihn ungemockt benutzt,
+bräuchte sie — dann besser eine echte `WareHouseGrid` verwenden.
 
-Nebenbedingung für diese Testdatei: `MockGrid` (Zeile 4) implementiert nur
-`calculate_warehouse_distance`. Solange der Router gemockt ist, genügt das. Ein
-künftiger Test, der ihn ungemockt benutzt, bräuchte auch
-`construct_warehouse_path` — dann besser eine echte `WareHouseGrid` verwenden.
+**`routes/fixed_parameter.py:424`** — `_expand_waypoints` delegiert jetzt an
+`utils.path_expansion.expand_waypoints`, statt die Logik zu wiederholen. Damit
+gibt es die Expansion nur noch einmal im Repo. Belegt vor dem Umbau durch einen
+Vergleich beider Funktionen auf 20 000 zufälligen Wegpunktlisten: null
+Abweichungen, auch die Fehlermeldung im Verletzungsfall identisch.
 
-**`app.py:98-100`** — **keine Änderung nötig.** `app.py` reicht nur das Ergebnis
-von `compute_route()` an `jsonify` weiter. Das Ausgabeformat bleibt identisch:
-beide Verfahren liefern eine Liste von `(x, y)`-Tupeln, die JSON als Liste
-zweielementiger Arrays serialisiert.
+**Neu: `tests/routes/test_route_expansion.py`** — Integrationstests auf einem
+echten Gitter, weil der gemockte Test nur die Verdrahtung prüft. Für alle drei
+Solver über drei Layouts: Pfad begehbar, 4-benachbart, Rundtour ab und bis zum
+Depot, und die zentrale Invariante
+
+```
+len(full_route) - 1 == solver.route_length
+```
+
+Damit hängt die Visualisierung nachweisbar an derselben Zahl, die in die
+Benchmarks eingeht. Zusätzlich wird für `NearestNeighbor` und `Christofides`
+dieselbe Besuchsreihenfolge mit beiden Verfahren expandiert und die Zellenzahl
+verglichen — A* bleibt also auch hier die unabhängige Kontrolle.
+
+### Was nicht geändert wurde
+
+**`app.py:98-100`** — keine Änderung nötig, wie vorhergesagt. `app.py` reicht nur
+das Ergebnis von `compute_route()` an `jsonify` weiter. Verifiziert mit einem
+Ende-zu-Ende-Aufruf des echten Endpunkts `/calculate-route` über den
+Flask-Testclient: HTTP 200, keine Fehlermeldungen, für alle vier Solver ist der
+Pfad begehbar, und die erste Zelle serialisiert wie vorher zu `[0, 0]`.
 `static/scripts/WarehouseRenderer.js:188-191` liest `route[i][0]` und
 `route[i][1]`, greift also positionsbasiert zu und merkt den Unterschied nicht.
 
-**`tests/test_grid.py`** — bleibt unverändert. Die beiden Kreuzvergleichstests
-sind der einzige unabhängige Beleg, dass die Distanzformel stimmt, und daran
-hängen alle Routenlängen und Optimalitätsgaps der Arbeit. Die Formel gegen einen
-Pfad zu prüfen, der aus derselben Formel gebaut ist, wäre zirkulär. Deshalb
-prüft `tests/test_closed_form_path.py` die Konstruktion zusätzlich gegen A*
-(Abnahmekriterium 4) und nicht nur gegen die Formel.
+**`algorithms/a_star.py`** — vollständig erhalten, inklusive
+`tests/algorithms/test_a_star.py`.
 
-### Zur gemeinsamen Wegpunkt-Expansion
+**`tests/test_grid.py`** — unverändert. Die beiden Kreuzvergleichstests sind der
+einzige unabhängige Beleg, dass die Distanzformel stimmt, und daran hängen alle
+Routenlängen und Optimalitätsgaps der Arbeit. Die Formel gegen einen Pfad zu
+prüfen, der aus derselben Formel gebaut ist, wäre zirkulär. Deshalb prüfen
+`tests/test_closed_form_path.py` und `tests/routes/test_route_expansion.py` die
+Konstruktion zusätzlich gegen A* und nicht nur gegen die Formel.
 
-Die Expansionslogik liegt jetzt in `utils/path_expansion.py`.
-`FixedParameter._expand_waypoints` (`routes/fixed_parameter.py:426`) behält
-seine Kopie, weil der Auftrag ausdrücklich verbietet, diese Datei anzufassen.
-Ich habe beide Funktionen auf 20 000 zufälligen Wegpunktlisten verglichen: **null
-Abweichungen**, auch die Fehlermeldung im Verletzungsfall ist identisch. Der
-empfohlene Folgeschritt ist deshalb trivial und risikolos — `_expand_waypoints`
-durch eine Delegation an `expand_waypoints` ersetzen.
+**`routes/scfs_plus.py`** — nicht angefasst, benutzte A* nie.
+
+### Zwei Vorbefunde, die beim Umbau sichtbar wurden
+
+Beides bestand vorher schon und ist nicht Folge des Austauschs. Beides bleibt
+absichtlich stehen, weil es außerhalb dieses Auftrags liegt.
+
+1. **Uneinheitlicher Sequenztyp.** `NearestNeighbor` und `Christofides` liefern
+   `(x, y)`-Tupel, `FixedParameter` liefert `[x, y]`-Listen
+   (`routes/fixed_parameter.py:330`). Praktisch irrelevant: JSON serialisiert
+   beides zum selben Array, und der Renderer greift positionsbasiert zu. Der
+   Integrationstest prüft deshalb das Paarformat, nicht den Sequenztyp.
+2. **`scfsPlus` expandiert nicht.** Der Solver gibt Wegpunkte statt Gitterzellen
+   zurück — im Testfall 14 Punkte für Länge 32. Das fällt visuell nicht auf, weil
+   alle aufeinanderfolgenden Wegpunkte gangparallel liegen (geprüft: kein
+   diagonales Paar) und die Canvas-Linie zwischen zwei gangparallelen Punkten
+   genauso aussieht wie die expandierte Zellenfolge. Ein `expand_waypoints`-Aufruf
+   würde es vereinheitlichen, jetzt wo die Funktion geteilt zur Verfügung steht.
 
 ## 7. Abnahmekriterien
 
@@ -296,8 +345,19 @@ schlagen 8 der 13 Tests fehl. Die Tests greifen also.
 
 ## 8. Regressionsstand
 
+Nach dem Prototyp (Abschnitte 1–5):
+
 ```
 .venv/bin/python -m pytest tests/          →  90 passed  (77 vorher + 13 neu)
 .venv/bin/python verify_optimality.py      →  182/182 Instanzen: FixedParameter == Optimum
 docker run --rm oprp-bench pytest tests/   →  90 passed
+```
+
+Nach dem Austausch (Abschnitt 6):
+
+```
+.venv/bin/python -m pytest tests/          →  101 passed  (+ 11 Integrationstests)
+.venv/bin/python verify_optimality.py      →  182/182 Instanzen: FixedParameter == Optimum
+docker run --rm oprp-bench pytest tests/   →  101 passed
+POST /calculate-route (Flask-Testclient)   →  HTTP 200, alle 4 Solver, Pfade begehbar
 ```

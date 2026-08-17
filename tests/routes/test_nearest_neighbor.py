@@ -35,8 +35,8 @@ def test_find_nearest_neighbor():
 
 
 def test_compute_route_calculation(mocker):
-    mock_astar_class = mocker.patch('routes.nearest_neighbor.AStar')
-    mock_astar_class.return_value.calculate_a_star_route.return_value = ['mocked', 'final', 'route']
+    mock_router_class = mocker.patch('routes.nearest_neighbor.ClosedFormRoute')
+    mock_router_class.return_value.calculate_closed_form_route.return_value = ['mocked', 'final', 'route']
 
     grid = MockGrid()
     locations = [{'x': 1, 'y': 1}, {'x': 2, 'y': 2}, {'x': 3, 'y': 3}]
@@ -45,7 +45,8 @@ def test_compute_route_calculation(mocker):
 
     final_route = route_finder.compute_route()
 
-    mock_astar_class.assert_called_once_with(grid.grid)
+    # ClosedFormRoute bekommt die Grid-Instanz, nicht deren rohes .grid-Attribut
+    mock_router_class.assert_called_once_with(grid)
 
     expected_nn_sequence = [
         {'x': 0, 'y': 0},
@@ -54,6 +55,7 @@ def test_compute_route_calculation(mocker):
         {'x': 3, 'y': 3},
         {'x': 0, 'y': 0}
     ]
-    mock_astar_class.return_value.calculate_a_star_route.assert_called_once_with(expected_nn_sequence)
+    mock_router_class.return_value.calculate_closed_form_route.assert_called_once_with(
+        expected_nn_sequence)
 
     assert final_route == ['mocked', 'final', 'route']
