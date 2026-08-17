@@ -340,8 +340,16 @@ absichtlich stehen, weil es außerhalb dieses Auftrags liegt.
 | 4 | die 8 Paare aus `test_grid.py` plus 540 Zufallspaare über 9 Layouts (`num_isles ∈ {1,5,10} × num_rows ∈ {1,3,8}`), Länge == A* | `test_targeted_pairs_match_formula_and_a_star`, `test_random_pairs_match_a_star_across_layouts` | ✅ |
 | 5 | Wege von und zu `(0,0)`, inklusive `(0,0) → (0,0)` | `test_depot_paths` (1×1, 3×2, 5×3, 10×8, alle Regalplätze in beide Richtungen) | ✅ |
 
-Aussagekraft geprüft: mit einer Mutation, die immer den oberen Ausgang wählt,
-schlagen 8 der 13 Tests fehl. Die Tests greifen also.
+Aussagekraft der Tests mit zwei Mutationen geprüft, jeweils eingebaut, gemessen
+und zurückgenommen:
+
+| Mutation | Wirkung | Ergebnis |
+| --- | --- | --- |
+| `exit_coord` immer `top_exit_coord`, statt das Minimum zu wählen | Pfad bleibt begehbar, wird aber länger als die Formel sagt | 8 von 13 Tests in `test_closed_form_path.py` fallen |
+| Nahtstellen-Deduplizierung in `ClosedFormRoute` entfernt (`full_route.extend(path_segment)` ohne Fallabfrage) | jede Segmentgrenze taucht doppelt auf | 9 Tests fallen, davon 4 in `test_route_expansion.py` |
+
+Die Tests greifen also, und zwar beide Ebenen: die Konstruktion selbst und die
+Verkettung zur ganzen Tour.
 
 ## 8. Regressionsstand
 
@@ -361,3 +369,74 @@ Nach dem Austausch (Abschnitt 6):
 docker run --rm oprp-bench pytest tests/   →  101 passed
 POST /calculate-route (Flask-Testclient)   →  HTTP 200, alle 4 Solver, Pfade begehbar
 ```
+
+## 9. Live-Verifikation am laufenden Server
+
+Über die Testsuite hinaus wurde der echte Flask-Server gestartet und über HTTP
+angesprochen, weil der Flask-Testclient den WSGI-Stack umgeht und deshalb nicht
+belegt, dass die Route im Browser ankommt.
+
+**Startbedingung.** Port 5000, den `app.run()` per Voreinstellung nimmt, war auf
+dem Entwicklungsrechner von einem fremden `node`-Prozess belegt (`ss -tlnp`:
+PID 2036172, `0.0.0.0:5000`). Der Server wurde deshalb auf Port 5001 gestartet,
+ohne `app.py` zu ändern:
+
+```bash
+.venv/bin/python -c "from app import app; app.run(host='127.0.0.1', port=5001)"
+```
+
+Falls das wieder auftritt: der Konflikt hat nichts mit dem Projekt zu tun, ein
+anderer Port genügt. `app.py` bewusst nicht anpassen, damit die Voreinstellung
+für andere Rechner erhalten bleibt.
+
+**Ergebnis.** `GET /` liefert HTTP 200. `POST /calculate-route` mit 3 Gängen,
+2 Reihen und 5 Regalplätzen liefert HTTP 200, leeres `error_message`-Array und
+für alle vier Solver einen Pfad:
+
+| Algorithmus | `length` | Zellen im Pfad | `Zellen - 1 == length` | Start → Ende |
+| --- | --- | --- | --- | --- |
+| nearestNeighbor | 44 | 45 | ✅ | `[0,0]` → `[0,0]` |
+| christofides | 38 | 39 | ✅ | `[0,0]` → `[0,0]` |
+| fixedParameter | 38 | 39 | ✅ | `[0,0]` → `[0,0]` |
+| scfsPlus | 38 | 17 | — (Wegpunkte, siehe Abschnitt 6) | `[0,0]` → `[0,0]` |
+
+Für die drei zellenexpandierenden Solver zeichnet das Frontend damit genau die
+Strecke, die auch als Länge berichtet wird. Die Zellen serialisieren zu
+`[x, y]`-Arrays, also im selben Format wie vor dem Austausch.
+
+## 10. Änderungsprotokoll
+
+Zwei Commits auf dem Branch `astar-ersatz-experiment`, nicht gepusht.
+
+**`1f7a002` — Prototyp, rein additiv.** Keine bestehende Aufrufstelle geändert.
+
+| Datei | Art |
+| --- | --- |
+| `warehouse/grid.py` | neue Methode `construct_warehouse_path`, `calculate_warehouse_distance` unberührt |
+| `algorithms/closed_form_route.py` | neu |
+| `algorithms/__init__.py` | Export `ClosedFormRoute` |
+| `utils/path_expansion.py` | neu |
+| `tests/test_closed_form_path.py` | neu, 13 Tests |
+| `benchmark_path_construction.py` | neu |
+| `ASTAR_ERSATZ.md` | neu |
+
+**`fada9a0` — der Austausch.**
+
+| Datei | Art |
+| --- | --- |
+| `routes/nearest_neighbor.py` | `AStar` → `ClosedFormRoute` |
+| `routes/christofides.py` | `AStar` → `ClosedFormRoute` |
+| `routes/fixed_parameter.py` | `_expand_waypoints` delegiert an `utils.path_expansion` |
+| `tests/routes/test_nearest_neighbor.py` | Mock auf den neuen Router umgestellt |
+| `tests/routes/test_route_expansion.py` | neu, 11 Integrationstests |
+| `ASTAR_ERSATZ.md` | Abschnitte 6 und 8 fortgeschrieben |
+
+**Über beide Commits unverändert:** `algorithms/a_star.py`,
+`tests/algorithms/test_a_star.py`, `tests/test_grid.py`,
+`WareHouseGrid.calculate_warehouse_distance`, `warehouse/grid.py::_create_grid`,
+`routes/base.py`, `routes/scfs_plus.py`, `app.py`, `static/`, `templates/`.
+
+Rücknahme, falls nötig: `git revert fada9a0` stellt den A*-Aufrufpfad wieder her
+und lässt den Prototyp mit allen Belegen stehen. Nur die Delegation in
+`fixed_parameter.py` zurücknehmen geht mit
+`git checkout 1f7a002 -- routes/fixed_parameter.py`.
