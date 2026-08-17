@@ -4,7 +4,8 @@ __pycache__
 *.csv
 .git
 .idea
-tests
+# tests/ wird im Image benoetigt: verify_optimality.py laedt den
+# Held-Karp-Referenzloeser aus tests/routes/test_fixed_parameter_dp.py
 img.png
 img_1.png
 cv.pdf

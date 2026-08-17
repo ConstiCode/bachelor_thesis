@@ -1,78 +1,173 @@
-# Travelling Salesman Problem in Warehouse Networks
+# Order Picking Routing Problem — Algorithm Comparison
 
-A Flask web application that solves the Travelling Salesman Problem (TSP) in warehouse environments. It compares three different algorithms — a greedy heuristic, an approximation algorithm, and an exact MILP solver — and visualizes the resulting pick routes on an interactive warehouse grid.
+A Flask web application that models a rectangular warehouse as a graph and compares three
+algorithms for the **Order Picking Routing Problem (OPRP)**: a heuristic, an approximation
+algorithm with a proven guarantee, and an exact fixed-parameter algorithm. Routes are
+visualised on an interactive warehouse grid, and a built-in benchmarking endpoint runs
+full-factorial parameter sweeps under reproducible conditions.
 
-Built as part of my bachelor thesis in Computer Science at the Chair of Algorithms and Data Structure at the University of Freiburg.
+Built as part of my bachelor thesis in Computer Science at the Chair of Algorithms and Data
+Structures, University of Freiburg.
 
 ![Warehouse Layout](static/img/screenshot_main.png)
 
 ![Algorithm Comparison](static/img/screenshot_comparison.png)
 
+## The problem
+
+The OPRP is a generalisation of the TSP: a picker starts at the depot, visits a given set of
+storage locations and returns. Only the pick locations *must* be visited — all other nodes of
+the warehouse graph may be traversed freely. This makes it a Steiner-TSP variant on a
+rectilinear grid rather than a plain TSP.
+
+Two size parameters matter and are varied independently in the benchmarks: the **order size**
+(number of locations to visit) and the **warehouse dimensions** (number of shelf columns and
+shelf rows `r`). The number of cross aisles is `h = r + 1`.
+
 ## Algorithms
 
-| Algorithm | Type | Avg. Gap to Optimal | Worst Case | Avg. Time |
-|---|---|---|---|---|
-| Nearest Neighbor | Greedy heuristic (O(n²)) | +13.4% | +86.4% | ~5ms |
-| Christofides | 3/2-approximation (O(n³)) | +8.2% | +30.5% | ~9ms |
-| Fixed Parameter (MILP) | Exact optimal solution | 0% | 0% | ~12s |
+| Algorithm | Paradigm | Complexity | Gap B1 | Gap B2 | Gap B3 |
+|---|---|---|---|---|---|
+| Nearest Neighbor | Heuristic | Θ(n²) | 4.05 % | 11.60 % | 13.66 % |
+| Christofides | 3/2-approximation | O(n³) | 3.56 % | 7.51 % | 7.93 % |
+| Fixed Parameter | Exact, parameterised | O(h · v · 7^h) | 0 % | 0 % | 0 % |
 
-*Benchmarked across 3,330 warehouse configurations with varying layouts and product counts.*
+Mean deviation from the optimum over 10,200 benchmark runs. B1 varies the warehouse width at
+`r = 1`, B2 varies the shelf rows at width 10, B3 varies both simultaneously. The gap columns
+cover only the configuration levels on which the fixed-parameter algorithm terminates without
+exception (1080, 840 and 760 instances) — above those levels the surviving instances are
+selection-biased and no exact reference exists.
 
-**Nearest Neighbor** always visits the closest unvisited location. Fast but can produce significantly suboptimal routes, especially in larger warehouses.
+Worst observed cases: Nearest Neighbor 35.71 % / 44.36 % / 50.00 %, Christofides
+15.79 % / 23.53 % / 24.24 %. The 3/2 bound was therefore never approached.
 
-**Christofides** constructs a minimum spanning tree, finds a minimum weight perfect matching on odd-degree vertices (Blossom algorithm via NetworkX), and converts the resulting Eulerian circuit into a Hamiltonian tour. Guarantees solutions within 1.5x of optimal for metric TSP.
+Mean computation times: Nearest Neighbor below 2 ms throughout, Christofides 5–6 ms, and the
+fixed-parameter algorithm from 3.6 ms at `r = 1` to 53.0 s at `r = 7`. From `r = 8` most runs
+exceed the 90 s limit — 658 of the 10,200 runs ended in a timeout.
 
-**Fixed Parameter (MILP)** is based on the Steiner TSP formulation by Cambazard & Catusse. It builds a graph of required and intermediate nodes, applies vertex/arc reduction preprocessing, and solves the resulting MILP (SCFS+ formulation) using PuLP/CBC. Finds the provably optimal solution with time complexity O(n * h * 5^h), where h is the warehouse grid height.
+**Nearest Neighbor** always moves to the closest unvisited location. Fast, but without a
+constant approximation guarantee: for metric instances the ratio to the optimal tour grows as
+Θ(log n).
 
-## Installation
+**Christofides** builds a minimum spanning tree, computes a minimum-weight perfect matching on
+the odd-degree vertices (Blossom algorithm via NetworkX), and shortcuts the resulting Eulerian
+circuit into a Hamiltonian tour. Guarantees at most 1.5× the optimum for metric TSP. In this
+implementation the bottleneck is not the matching but building the edge weights, which
+dominates the runtime for large orders.
+
+**Fixed Parameter** implements the dynamic programme of Cambazard & Catusse. It sweeps the
+warehouse column by column and carries a *frontier state* — one parity per cross aisle plus a
+connected-component label — so the state count depends only on `h`, not on the warehouse width.
+The number of reachable states is `|Ω(h)| = Σ_k C(h,k) · S_k` with the little Schröder numbers
+`S_k`, because the component partition is non-crossing. A dominance rule keeps only the
+cheapest partial solution per state. The sweep graph is built only up to the topmost and
+rightmost pick, so the *effective* `h` depends on the instance, not just on the layout. This is
+why some runs still terminate at `r ≥ 8`.
+
+> **Note on `routes/scfs_plus.py`:** the repository also contains an MILP formulation
+> (SCFS+, solved with PuLP/CBC). It was used during development, is **not** part of the thesis
+> and was not executed in any benchmark. The `PuLP` dependency and part of the test suite
+> exist because of it.
+
+## Running with Docker
+
+This is the reproducible path and requires nothing but Docker.
+
+```bash
+docker build -t oprp-bench .
+docker run --rm -p 127.0.0.1:5000:5000 oprp-bench
+```
+
+The application is then available at `http://127.0.0.1:5000`. The image is based on
+`python:3.12-slim` (Python 3.12.13) and installs the pinned versions from `requirements.txt`
+and `requirements-dev.txt`.
+
+## Running the benchmarks
+
+The web UI covers interactive use. For measurement runs, `POST` a configuration to the
+`/benchmark` endpoint and fetch the results as CSV from `/benchmark/export`. A minimal
+self-contained example:
+
+```bash
+curl -s -X POST http://127.0.0.1:5000/benchmark \
+     -H 'Content-Type: application/json' \
+     -d '{"warehouse_configs":[{"numColumns":5,"numCrossings":1}],
+          "product_counts":[5,10],
+          "iterations":20,
+          "base_seed":42,
+          "timeout_seconds":90,
+          "algorithms":["nearestNeighbor","christofides","fixedParameter"]}'
+
+curl -s http://127.0.0.1:5000/benchmark/export -o results.csv
+```
+
+Payload fields: `warehouse_configs` is the list of layouts to sweep, `product_counts` the order
+sizes, `iterations` the repetitions per combination, `base_seed` the seed of the first
+iteration, and `timeout_seconds` the per-solver wall-clock limit.
+
+> **Careful with `numCrossings`:** despite the name, the field holds the number of **shelf
+> rows** `r`. The number of cross aisles is `h = r + 1`. A layout with `numCrossings: 1` has two
+> cross aisles.
+
+Each solver runs in a capped subprocess with a hard timeout and a 12 GB address-space limit.
+The memory limit never took effect in the recorded runs — the time limit always triggered
+first. The CSV holds one row per run with algorithm, layout, product count, iteration, route
+length, computation time, seed and status.
+
+The three benchmark payloads used in the thesis (`bench_b1/b2/b3_payload.json`) and the runner
+script `run_bench_generic.sh`, which wraps the two calls above and also writes a log, are part
+of the thesis submission package rather than this repository.
+
+## Validation
+
+```bash
+python verify_optimality.py   # 182/182 instances: FixedParameter == optimum
+pytest tests/                 # 77 tests
+```
+
+`verify_optimality.py` deterministically generates 182 random instances with up to 5 shelf
+columns, 3 shelf rows and 10 products, and checks for each whether the fixed-parameter
+algorithm hits the optimum of an independent Held-Karp reference solver. The bound on instance
+size comes from the exponential cost of that reference. Both commands also run inside the
+container.
+
+## Local installation without Docker
 
 ```bash
 git clone https://github.com/ConstiCode/bachelor_thesis.git
 cd bachelor_thesis
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-## Usage
-
-```bash
+pip install -r requirements.txt -r requirements-dev.txt
 python app.py
-```
-
-Open `http://localhost:5000` in your browser. Configure the warehouse layout (columns, rows), generate random stock locations, select one or more algorithms, and compare the resulting routes side by side.
-
-## Running Tests
-
-```bash
-pytest tests/
 ```
 
 ## Architecture
 
 ### Backend (Python/Flask)
 
-- `app.py` — Flask entry point with endpoints for location generation and route calculation
-- `routes/` — Solver classes inheriting from a shared `BaseRoute` abstract class
-  - `nearest_neighbor.py`, `christofides.py`, `fixed_parameter.py`
-- `warehouse/grid.py` — Warehouse grid model with constant-time distance calculation
-- `algorithms/a_star.py` — A* pathfinding for converting TSP visit sequences into walkable warehouse paths
+- `app.py` — Flask entry point, solver registry, benchmark driver and CSV export
+- `routes/` — solver classes inheriting from the abstract `BaseRoute`
+  - `nearest_neighbor.py`, `christofides.py`, `fixed_parameter.py`, `scfs_plus.py`
+- `warehouse/grid.py` — warehouse grid model with constant-time distance calculation
+- `algorithms/a_star.py` — A* pathfinding, used to turn a visit sequence into a walkable path
+- `verify_optimality.py` — optimality check against the Held-Karp reference solver
 
-### Frontend (Vanilla JavaScript)
+### Frontend (vanilla JavaScript)
 
 MVC-style architecture with ES6 modules, no external libraries:
 
-- `AppController.js` — Main controller coordinating user input, API calls, and rendering
-- `WarehouseRenderer.js` — Canvas-based warehouse grid visualization
-- `ModalView.js` — Side-by-side algorithm comparison view
-- `CoordinateTranslator.js` — Grid-to-pixel coordinate mapping
+- `AppController.js` — coordinates user input, API calls and rendering
+- `WarehouseRenderer.js` — canvas-based warehouse grid visualisation
+- `ModalView.js` — side-by-side algorithm comparison
+- `CoordinateTranslator.js` — grid-to-pixel coordinate mapping
 
 ## Technologies
 
-- **Flask** — Web framework
-- **NetworkX** — Graph operations (MST, Blossom matching)
-- **PuLP** — MILP modeling with CBC solver
-- **pytest** — Testing
+- **Flask** — web framework and REST API
+- **NetworkX** — graph operations (Blossom matching, Eulerian circuit)
+- **PuLP** — MILP modelling with CBC, used only by `scfs_plus.py`
+- **pytest** — testing
 
 ## Author
 

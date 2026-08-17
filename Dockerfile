@@ -5,8 +5,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt requirements-dev.txt ./
+# requirements-dev.txt enthaelt pytest; wird fuer die Validierungslaeufe
+# (pytest tests/, verify_optimality.py) im Container benoetigt.
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
 
 COPY . .
 
