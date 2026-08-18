@@ -137,3 +137,40 @@ def test_warehouse_vs_a_star_random(warehouse):
         # Assertions
         assert a_star_dist is not None  # path must exist
         assert warehouse_dist == a_star_dist  # warehouse distance should match A* exactly
+
+# ============================================================
+# Vollstaendige Gegenpruefung der Distanzformel gegen eine Breitensuche
+# ============================================================
+# Die uebrigen Kreuzvergleiche in dieser Datei decken nur das Layout 3x2 ab.
+# Weil saemtliche Routenlaengen und damit alle Optimalitaetsgaps an
+# calculate_warehouse_distance haengen, wird die Formel hier zusaetzlich gegen
+# eine Breitensuche geprueft, die weder die Formel noch den Graphaufbau der
+# Solver benutzt. Eine Breitensuche je Startort liefert die Distanz zu allen
+# Zielen gleichzeitig, deshalb ist der Test trotz vieler Paare schnell.
+
+import pytest
+
+from tests.routes.test_fixed_parameter_dp import bfs_distances
+
+
+def _all_locations(grid):
+    return [grid.location_to_coordinate(i)
+            for i in range(1, grid.total_locations + 1)]
+
+
+@pytest.mark.parametrize("cols,rows", [(1, 1), (1, 3), (3, 2), (5, 3), (10, 1), (2, 8), (10, 8)])
+def test_distance_formula_matches_bfs_on_all_pairs(cols, rows):
+    grid = WareHouseGrid(cols, rows)
+    locations = _all_locations(grid)
+    depot = {'x': 0, 'y': 0}
+    points = locations + [depot]
+
+    for start in points:
+        start_tuple = (start['x'], start['y'])
+        source = grid._turn_location_coordinate_to_route_loc(start_tuple)
+        dist = bfs_distances(grid, source)
+        for end in points:
+            end_tuple = (end['x'], end['y'])
+            target = grid._turn_location_coordinate_to_route_loc(end_tuple)
+            assert grid.calculate_warehouse_distance(start_tuple, end_tuple) == dist[target], (
+                f"Layout {cols}x{rows}: {start_tuple} -> {end_tuple}")

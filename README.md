@@ -157,7 +157,7 @@ lies outside the measurement.
 
 ```bash
 python verify_optimality.py   # 182/182 instances: FixedParameter == optimum
-pytest tests/                 # 119 tests
+pytest tests/                 # 126 tests
 ```
 
 `verify_optimality.py` deterministically generates 182 random instances with up to 5 shelf
@@ -167,8 +167,8 @@ size comes from the exponential cost of that reference. Both commands also run i
 container.
 
 The warehouse distance formula, on which every reported route length depends, is checked
-against two independent controls: an exhaustive breadth-first search over all location pairs
-of six layouts plus 4,000 sampled pairs of a seventh, and the A* implementation in
+against two independent controls: an exhaustive breadth-first search over all 1,015,039
+location pairs of seven layouts between 1x1 and 10x8, and the A* implementation in
 `algorithms/a_star.py`. A* is no longer part of the application — the drawn path is built by a
 closed-form three-segment construction — and now serves only as the search-based reference in
 the test suite.
