@@ -63,7 +63,7 @@ def test_path_length_matches_reported_route_length(solver_class, num_isles, num_
         locations = [warehouse.location_to_coordinate(loc) for loc in picks]
 
         solver = solver_class(warehouse, list(locations), dict(depot))
-        full_route = solver.compute_route()
+        full_route = solver.expand_route(solver.compute_route())
 
         assert_drawable_path(warehouse, full_route)
         assert len(full_route) - 1 == solver.route_length, (
@@ -99,7 +99,7 @@ def test_swap_preserves_a_star_path_length(solver_class):
             return _original(loc1, loc2)
 
         solver.grid = _GridProxy(warehouse, spy)
-        full_route = solver.compute_route()
+        full_route = solver.expand_route(solver.compute_route())
 
         visit_sequence = [{'x': recorded[0][0][0], 'y': recorded[0][0][1]}] + [
             {'x': end[0], 'y': end[1]} for _, end in recorded]
@@ -121,3 +121,39 @@ class _GridProxy:
 
     def __getattr__(self, name):
         return getattr(self._warehouse, name)
+
+
+# ----------------------------------------------------------------------
+# Messgrenze: compute_route muss ohne die Darstellung auskommen
+# ----------------------------------------------------------------------
+
+@pytest.mark.parametrize("solver_class", SOLVERS)
+@pytest.mark.parametrize("num_isles,num_rows", LAYOUTS)
+def test_route_length_is_final_after_compute_route(solver_class, num_isles, num_rows):
+    """route_length steht nach compute_route fest und aendert sich durch die
+    Expansion nicht.
+
+    Das ist die Invariante, auf der die Messgrenze der Benchmarks beruht:
+    gemessen wird von der Instanziierung bis zu Tour plus Laenge, die Expansion
+    in Gitterzellen liegt ausserhalb. Wuerde die Laenge erst bei der Expansion
+    entstehen, waere diese Trennung unzulaessig.
+    """
+    rng = random.Random(20260818)
+    warehouse = WareHouseGrid(num_isles=num_isles, num_rows=num_rows)
+    depot = {'x': 0, 'y': 0}
+
+    for _ in range(5):
+        picks = rng.sample(range(1, warehouse.total_locations + 1),
+                           min(5, warehouse.total_locations))
+        locations = [warehouse.location_to_coordinate(loc) for loc in picks]
+
+        solver = solver_class(warehouse, list(locations), dict(depot))
+
+        tour = solver.compute_route()
+        length_after_compute = solver.route_length
+        assert length_after_compute > 0
+
+        cells = solver.expand_route(tour)
+        assert solver.route_length == length_after_compute, \
+            "expand_route darf route_length nicht veraendern"
+        assert len(cells) - 1 == length_after_compute

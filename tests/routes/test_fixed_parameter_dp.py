@@ -119,7 +119,9 @@ class TestDepotConvention:
         grid, locations = sample_instance(cols, rows, products, seed)
         for solver_class in (FixedParameter, NearestNeighbor, Christofides):
             solver = solver_class(grid, list(locations), dict(DEPOT))
-            path = [tuple(p) for p in solver.compute_route()]
+            # expand_route liefert die begehbare Zellenfolge. compute_route
+            # liefert die Tour, aus der die Laenge bestimmt wird.
+            path = [tuple(p) for p in solver.expand_route(solver.compute_route())]
             assert solver.route_length == path_length(path), (
                 f"{solver_class.__name__}: gemeldet {solver.route_length}, "
                 f"Pfad {path_length(path)}")
@@ -131,7 +133,7 @@ class TestDepotConvention:
         grid, locations = sample_instance(cols, rows, products, seed)
         for solver_class in (FixedParameter, NearestNeighbor, Christofides):
             solver = solver_class(grid, list(locations), dict(DEPOT))
-            path = [tuple(p) for p in solver.compute_route()]
+            path = [tuple(p) for p in solver.expand_route(solver.compute_route())]
             assert path[0] == (0, 0), f"{solver_class.__name__} startet bei {path[0]}"
             assert path[-1] == (0, 0), f"{solver_class.__name__} endet bei {path[-1]}"
 
@@ -216,7 +218,7 @@ class TestRouteStructure:
     def test_route_is_a_closed_walk_of_unit_steps(self, cols, rows, products, seed):
         grid, locations = sample_instance(cols, rows, products, seed)
         fp = FixedParameter(grid, list(locations), dict(DEPOT))
-        path = [tuple(p) for p in fp.compute_route()]
+        path = [tuple(p) for p in fp.expand_route(fp.compute_route())]
 
         assert path[0] == path[-1] == (0, 0)
         for i in range(1, len(path)):
@@ -232,7 +234,7 @@ class TestRouteStructure:
     def test_every_pick_location_is_served(self, cols, rows, products, seed):
         grid, locations = sample_instance(cols, rows, products, seed)
         fp = FixedParameter(grid, list(locations), dict(DEPOT))
-        visited = {tuple(p) for p in fp.compute_route()}
+        visited = {tuple(p) for p in fp.expand_route(fp.compute_route())}
 
         for loc in locations:
             stand = grid._turn_location_coordinate_to_route_loc((loc['x'], loc['y']))

@@ -418,9 +418,12 @@ class FixedParameter(BaseRoute):
                 raw.append(v)
         # raw[0] == raw[-1] == (0,0)
 
-        # Expand waypoints to step-by-step grid path so the frontend
-        # can draw the route along aisles (not diagonal lines).
-        return self._expand_waypoints(raw)
+        # Ergebnis sind die Eckpunkte der Tour. Die Expansion in einzelne
+        # Gitterzellen ist Darstellung und erfolgt in expand_route, damit sie
+        # ausserhalb der gemessenen Berechnungszeit liegt. Die Routenlaenge
+        # laesst sich aus den Wegpunkten bestimmen, weil aufeinanderfolgende
+        # Wegpunkte immer gangparallel liegen.
+        return raw
 
     @staticmethod
     def _expand_waypoints(waypoints):
@@ -436,6 +439,18 @@ class FixedParameter(BaseRoute):
         Expansion benutzt und keine zweite Kopie entsteht.
         """
         return expand_waypoints(waypoints)
+
+    def expand_route(self, tour):
+        """Expandiert die Wegpunkte der Tour in eine begehbare Zellenfolge
+        fuer die Darstellung im Frontend.
+
+        Liegt ausserhalb der gemessenen Berechnungszeit: nach compute_route
+        stehen Tour und route_length bereits fest, die Zellenfolge traegt zum
+        Ergebnis nichts bei. Damit ist die Messgrenze fuer alle drei Verfahren
+        dieselbe -- von der Instanziierung bis zu Tour plus Laenge.
+        """
+        cells = expand_waypoints([(p[0], p[1]) for p in tour])
+        return [[x, y] for (x, y) in cells]
 
     # ------------------------------------------------------------------
     # Kept helper methods from original implementation

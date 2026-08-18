@@ -14,6 +14,18 @@ class BaseRoute(ABC):
         """
         pass
 
+    def expand_route(self, tour):
+        """
+        Expandiert die Tour in eine begehbare Zellenfolge fuer die Darstellung im
+        Frontend. Diese Expansion liegt bewusst AUSSERHALB von compute_route und
+        damit ausserhalb der gemessenen Berechnungszeit, weil sie nichts zum
+        Ergebnis beitraegt: die Routenlaenge steht nach compute_route bereits fest.
+
+        Standardfall: die Tour ist schon eine Zellenfolge (FixedParameter,
+        ScfsPlus). Dort ist der Pfad das Ergebnis, nicht seine Darstellung.
+        """
+        return tour
+
     def compute_route_length(self, route_sequence: list[tuple[int, int]]) -> int:
         """
         Computes the route length of the initial route. Where the route is the sequence of locations to visit.

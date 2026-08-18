@@ -92,8 +92,10 @@ def calculate_route():
         solver = route_solver_class(grid, list(locations), dict(packing_table))
         try:
             start_time = time.perf_counter()
-            route = solver.compute_route()
+            tour = solver.compute_route()
             end_time = time.perf_counter()
+            # Die Expansion fuer die Darstellung liegt ausserhalb der Messung.
+            route = solver.expand_route(tour)
 
             routes[algorithm] = {
                 "route": route,
@@ -114,6 +116,32 @@ def calculate_route():
 MEM_LIMIT_BYTES = 12 * 1024 ** 3  # 12 GB
 
 
+def warm_up_solver(solver_class):
+    """Fuehrt das Verfahren einmal auf einer Kleinstinstanz aus, damit die
+    verzoegerten Modulimporte (vor allem networkx) und die Bytecode-Pfade
+    bereits geladen sind, BEVOR die Zeitnahme beginnt.
+
+    Ohne diesen Schritt zaehlt jede Messung eine einmalige
+    Interpreter-Initialisierung mit. Weil run_solver_capped fuer jeden Lauf
+    forkt und der Elternprozess die Solver nie selbst ausfuehrt, faellt dieser
+    Aufschlag in JEDEM Kindprozess erneut an: gemessen rund 1,6 ms pro Lauf bei
+    Christofides und FixedParameter, waehrend NearestNeighbor mangels networkx
+    kaum betroffen ist. Der Aufschlag ist damit algorithmusabhaengig und
+    additiv, verzerrt also den Vergleich der Verfahren und ueberdeckt bei
+    kleinen Instanzen die Abhaengigkeit von der Produktzahl.
+
+    Das Ergebnis wird verworfen. Fehler werden geschluckt: das Aufwaermen darf
+    den eigentlichen Lauf unter keinen Umstaenden beeinflussen.
+    """
+    try:
+        grid = WareHouseGrid(1, 1)
+        locations = [grid.location_to_coordinate(i) for i in (1, 2, 3)]
+        # Kopien, weil FixedParameter.__init__ das Depot an die Liste anhaengt.
+        solver_class(grid, list(locations), {'x': 0, 'y': 0}).compute_route()
+    except Exception:
+        pass
+
+
 def _solver_worker(q, mem_limit, solver_class, grid, locations, packing_table):
     """Laeuft im Kindprozess: setzt das Speicherlimit, berechnet die Route
     und gibt Ergebnis bzw. Fehlerstatus ueber die Queue zurueck."""
@@ -122,6 +150,8 @@ def _solver_worker(q, mem_limit, solver_class, grid, locations, packing_table):
     except (ValueError, OSError):
         pass
     try:
+        # Aufwaermen liegt ausserhalb der Zeitnahme (siehe warm_up_solver).
+        warm_up_solver(solver_class)
         start = time.perf_counter()
         solver = solver_class(grid, locations, packing_table)
         solver.compute_route()

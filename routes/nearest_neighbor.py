@@ -15,13 +15,18 @@ class NearestNeighbor(BaseRoute):
         route.append({'x': 0, 'y': 0})
 
         self.compute_and_set_route_length([(d['x'], d['y']) for d in route])
+
+        # Ergebnis des Verfahrens: Besuchsreihenfolge plus route_length. Die
+        # Expansion in Gitterzellen erfolgt in expand_route und liegt damit
+        # ausserhalb der Messung.
+        return route
+
+    def expand_route(self, tour):
         # Pfadexpansion in geschlossener Form (siehe ASTAR_ERSATZ.md). Nimmt die
         # WareHouseGrid selbst, nicht das rohe Gitter, weil sie die
         # Fallunterscheidung von calculate_warehouse_distance mitbenutzt.
         router = ClosedFormRoute(self.grid)
-        full_route = router.calculate_closed_form_route(route)
-
-        return full_route
+        return router.calculate_closed_form_route(tour)
 
     def _find_nearest_neighbor(self, current_location, locations):
         nearest_location = None

@@ -43,7 +43,9 @@ def test_compute_route_calculation(mocker):
     start_pos = {'x': 0, 'y': 0}
     route_finder = NearestNeighbor(grid, locations, start_pos)
 
-    final_route = route_finder.compute_route()
+    # Die Expansion liegt seit der Trennung der Messgrenze in expand_route.
+    tour = route_finder.compute_route()
+    final_route = route_finder.expand_route(tour)
 
     # ClosedFormRoute bekommt die Grid-Instanz, nicht deren rohes .grid-Attribut
     mock_router_class.assert_called_once_with(grid)

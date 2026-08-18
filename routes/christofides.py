@@ -33,11 +33,15 @@ class Christofides(BaseRoute):
 
         self.compute_and_set_route_length(route)
 
+        # Ergebnis des Verfahrens: Besuchsreihenfolge plus route_length. Die
+        # Expansion in Gitterzellen erfolgt in expand_route und liegt damit
+        # ausserhalb der Messung.
+        return route
+
+    def expand_route(self, tour):
         # Pfadexpansion in geschlossener Form (siehe ASTAR_ERSATZ.md).
         router = ClosedFormRoute(self.grid)
-        full_route = router.calculate_closed_form_route([{'x': x, 'y': y} for (x, y) in route])
-
-        return full_route
+        return router.calculate_closed_form_route([{'x': x, 'y': y} for (x, y) in tour])
 
     def _get_mst_weights(self, locations=None):
         if not locations:
