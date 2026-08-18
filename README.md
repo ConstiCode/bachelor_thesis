@@ -114,15 +114,50 @@ The memory limit never took effect in the recorded runs — the time limit alway
 first. The CSV holds one row per run with algorithm, layout, product count, iteration, route
 length, computation time, seed and status.
 
-The three benchmark payloads used in the thesis (`bench_b1/b2/b3_payload.json`) and the runner
-script `run_bench_generic.sh`, which wraps the two calls above and also writes a log, are part
-of the thesis submission package rather than this repository.
+### Reproducing the three thesis benchmarks
+
+The payloads of the three benchmarks are in `benchmarks/payloads/`: `b1.json` varies the
+warehouse width at `r = 1`, `b2.json` varies the shelf rows at width 10, and `b3.json` varies
+both at once. All three use 20 iterations, `base_seed: 42` and a 90 s timeout.
+
+Two runners are shipped. The reported measurements were produced with **`bench_night_runner.py`**,
+which runs the same loops as the endpoint but calls the solvers directly, without the HTTP
+layer. It writes after every configuration and calls `fsync`, so an interrupted run only loses
+the stage in progress, and a second call appends to the existing file:
+
+```bash
+docker run --rm -v "$PWD/benchmarks/results:/app/benchmarks/results" \
+       oprp-bench python bench_night_runner.py b1
+```
+
+Results land in `benchmarks/results/b1.csv`. Both directories can be redirected with the
+environment variables `BENCH_PAYLOAD_DIR` and `BENCH_OUT_DIR`; without Docker, the defaults
+already point at the directories in this repository.
+
+**`benchmarks/run_bench_http.sh`** takes the other path: it posts a payload to a running
+instance, converts the response to CSV and writes a log. It needs the application to be up
+(see above):
+
+```bash
+benchmarks/run_bench_http.sh b1
+```
+
+Expect roughly half a minute for B1, about eleven hours for B2 and about ten for B3 on a
+current laptop — the fixed-parameter algorithm dominates as soon as `r` grows.
+
+Each measurement is preceded by a discarded warm-up run of the same solver on a tiny instance.
+Without it every measurement would include the one-off interpreter initialisation, since each
+run is executed in its own forked process: roughly 1.6 ms per run, and only for Christofides
+and the fixed-parameter algorithm, which are the two solvers that use NetworkX. The measured
+span itself runs from instantiating the solver until the closed tour and its length are
+available; expanding that tour into a walkable cell sequence serves the visualisation only and
+lies outside the measurement.
 
 ## Validation
 
 ```bash
 python verify_optimality.py   # 182/182 instances: FixedParameter == optimum
-pytest tests/                 # 77 tests
+pytest tests/                 # 119 tests
 ```
 
 `verify_optimality.py` deterministically generates 182 random instances with up to 5 shelf
@@ -130,6 +165,13 @@ columns, 3 shelf rows and 10 products, and checks for each whether the fixed-par
 algorithm hits the optimum of an independent Held-Karp reference solver. The bound on instance
 size comes from the exponential cost of that reference. Both commands also run inside the
 container.
+
+The warehouse distance formula, on which every reported route length depends, is checked
+against two independent controls: an exhaustive breadth-first search over all location pairs
+of six layouts plus 4,000 sampled pairs of a seventh, and the A* implementation in
+`algorithms/a_star.py`. A* is no longer part of the application — the drawn path is built by a
+closed-form three-segment construction — and now serves only as the search-based reference in
+the test suite.
 
 ## Local installation without Docker
 

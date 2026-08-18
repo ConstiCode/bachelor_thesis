@@ -1,0 +1,19 @@
+{
+  "warehouse_configs": [
+    {"numColumns": 1, "numCrossings": 1},
+    {"numColumns": 2, "numCrossings": 2},
+    {"numColumns": 3, "numCrossings": 3},
+    {"numColumns": 4, "numCrossings": 4},
+    {"numColumns": 5, "numCrossings": 5},
+    {"numColumns": 6, "numCrossings": 6},
+    {"numColumns": 7, "numCrossings": 7},
+    {"numColumns": 8, "numCrossings": 8},
+    {"numColumns": 9, "numCrossings": 9},
+    {"numColumns": 10, "numCrossings": 10}
+  ],
+  "product_counts": [5, 10, 15, 20, 25, 30],
+  "iterations": 20,
+  "base_seed": 42,
+  "timeout_seconds": 90,
+  "algorithms": ["nearestNeighbor", "christofides", "fixedParameter"]
+}
