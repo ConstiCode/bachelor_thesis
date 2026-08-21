@@ -1,4 +1,6 @@
 
+import { ROUTE_STYLES } from './WarehouseRenderer.js';
+
 export default class ModalView {
     /**
      * @param {WarehouseRenderer} renderer - An instance of the renderer for drawing.
@@ -45,9 +47,9 @@ export default class ModalView {
             const wrapper = document.createElement("div");
             wrapper.classList.add("modal-canvas-wrapper");
 
-            // add title
+            // add title, using the same readable label as the canvas legend
             const title = document.createElement("h3");
-            title.textContent = algoName;
+            title.textContent = ROUTE_STYLES[algoName] ? ROUTE_STYLES[algoName].label : algoName;
             wrapper.appendChild(title);
 
             // add canvas

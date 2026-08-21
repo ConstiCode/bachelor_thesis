@@ -1,6 +1,31 @@
 import WarehouseModel from './WarehouseModel.js';
 import CoordinateTranslator from './CoordinateTranslator.js';
 
+/**
+ * Darstellung der Routen, gemeinsame Quelle fuer die Hauptansicht und das
+ * Vergleichsfenster, damit beide nicht auseinanderlaufen koennen.
+ *
+ * Die Reihenfolge der Eintraege ist die Zeichenreihenfolge: breite Linien
+ * zuerst, schmale darueber. Deckungsgleiche Routen bleiben so alle sichtbar.
+ * Das ist hier der Normalfall und nicht die Ausnahme, weil die Verfahren auf
+ * kleinen Instanzen oft dieselbe Tour finden.
+ *
+ * Rot fehlt bewusst: die Auftragspositionen sind rot, eine rote Route waere
+ * von ihnen nicht zu unterscheiden.
+ */
+export const ROUTE_STYLES = {
+    fixedParameter:  {label: "Fixed Parameter",  color: "#bf5af2", width: 6, dash: []},
+    christofides:    {label: "Christofides",     color: "#ffd60a", width: 4, dash: [10, 6]},
+    nearestNeighbor: {label: "Nearest Neighbor", color: "#32d74b", width: 2, dash: [3, 4]},
+    scfsPlus:        {label: "SCFS+",            color: "#64d2ff", width: 2, dash: [1, 5]},
+};
+
+const FALLBACK_ROUTE_STYLE = {label: "Route", color: "#f5f5f7", width: 3, dash: []};
+
+function routeStyle(algorithmName) {
+    return ROUTE_STYLES[algorithmName] || FALLBACK_ROUTE_STYLE;
+}
+
 export default class WarehouseRenderer {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
@@ -47,11 +72,23 @@ export default class WarehouseRenderer {
         this._drawPackingTable(this.ctx, model, this.translator);
         this._drawPickingMarkers(this.ctx, model, this.translator);
 
-        // draw routes
-        for (const [algoName, data] of Object.entries(model.routes)) {
-            const color = (algoName === 'christofides') ? 'yellow' : (algoName === 'nearestNeighbor') ? 'red' : (algoName === 'scfsPlus') ? 'cyan' : 'pink';
-            this._drawWarehouseRoute(this.ctx, data.route, color, this.translator);
+        // Draw the routes in the fixed order of ROUTE_STYLES, not in the order
+        // the backend happened to return them. Otherwise the last one drawn
+        // hides the others wherever they run along the same aisles.
+        const drawn = Object.keys(ROUTE_STYLES).filter(name => model.routes[name]);
+        for (const algoName of drawn) {
+            this._drawWarehouseRoute(this.ctx, model.routes[algoName].route,
+                routeStyle(algoName), this.translator);
         }
+
+        // Anything the styles do not know about, drawn with the fallback.
+        const unknown = Object.keys(model.routes).filter(name => !ROUTE_STYLES[name]);
+        for (const algoName of unknown) {
+            this._drawWarehouseRoute(this.ctx, model.routes[algoName].route,
+                routeStyle(algoName), this.translator);
+        }
+
+        this._drawLegend(this.ctx, [...drawn, ...unknown], width);
     }
 
     /**
@@ -71,9 +108,7 @@ export default class WarehouseRenderer {
 
         this._drawPickingMarkers(ctx, {stockLocations: locations}, modalTranslator); // Pass a light-weight model
 
-        const color = (routeName === 'christofides') ? 'yellow' : (routeName === 'nearestNeighbor') ? 'red' : (routeName === 'scfsPlus') ? 'cyan' : 'pink';
-
-        this._drawWarehouseRoute(ctx, routeData.route, color, modalTranslator);
+        this._drawWarehouseRoute(ctx, routeData.route, routeStyle(routeName), modalTranslator);
 
     }
 
@@ -181,7 +216,7 @@ export default class WarehouseRenderer {
         }
     }
 
-    _drawWarehouseRoute(ctx, route, color, translator) {
+    _drawWarehouseRoute(ctx, route, style, translator) {
         if (!route || route.length === 0) return;
 
         ctx.beginPath();
@@ -192,8 +227,63 @@ export default class WarehouseRenderer {
             const pos = translator.gridToPixel({x: point[0], y: point[1]});
             ctx.lineTo(pos.x, pos.y);
         }
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = style.color;
+        ctx.lineWidth = style.width;
+        ctx.setLineDash(style.dash);
         ctx.stroke();
+        // Reset, otherwise the pattern leaks into everything drawn afterwards.
+        ctx.setLineDash([]);
+    }
+
+    /**
+     * Draws a legend for the routes currently on the canvas. Without it the
+     * colours mean nothing once the comparison window is closed.
+     */
+    _drawLegend(ctx, algorithmNames, canvasWidth) {
+        if (algorithmNames.length === 0) return;
+
+        const lineHeight = 20;
+        const swatchWidth = 24;
+        const gap = 8;
+        const padding = 10;
+
+        // Set every text property explicitly. The depot label runs before this
+        // and leaves textAlign at "center", which would shift the labels.
+        ctx.font = "12px sans-serif";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+
+        const entries = algorithmNames.map(routeStyle);
+        const textWidth = Math.max(...entries.map(e => ctx.measureText(e.label).width));
+        const boxWidth = padding * 2 + swatchWidth + gap + textWidth;
+        const boxHeight = padding * 2 + entries.length * lineHeight;
+        // Keep the box inside the canvas even when it is narrow.
+        const boxX = Math.max(12, canvasWidth - boxWidth - 12);
+        const boxY = 12;
+
+        ctx.fillStyle = "rgba(44, 44, 46, 0.9)";
+        ctx.strokeStyle = "#3a3a3c";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.rect(boxX, boxY, boxWidth, boxHeight);
+        ctx.fill();
+        ctx.stroke();
+
+        entries.forEach((entry, index) => {
+            const centerY = boxY + padding + index * lineHeight + lineHeight / 2;
+
+            ctx.beginPath();
+            ctx.strokeStyle = entry.color;
+            // Cap the width so a 6 px route still fits the swatch row.
+            ctx.lineWidth = Math.min(entry.width, 4);
+            ctx.setLineDash(entry.dash);
+            ctx.moveTo(boxX + padding, centerY);
+            ctx.lineTo(boxX + padding + swatchWidth, centerY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = "#f5f5f7";
+            ctx.fillText(entry.label, boxX + padding + swatchWidth + gap, centerY);
+        });
     }
 }
