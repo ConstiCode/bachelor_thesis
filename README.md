@@ -16,7 +16,7 @@ Structures, University of Freiburg.
 ## The problem
 
 The OPRP is a generalisation of the TSP: a picker starts at the depot, visits a given set of
-storage locations and returns. Only the pick locations *must* be visited — all other nodes of
+storage locations and returns. Only the pick locations *must* be visited. All other nodes of
 the warehouse graph may be traversed freely. This makes it a Steiner-TSP variant on a
 rectilinear grid rather than a plain TSP.
 
@@ -35,15 +35,17 @@ shelf rows `r`). The number of cross aisles is `h = r + 1`.
 Mean deviation from the optimum over 10,200 benchmark runs. B1 varies the warehouse width at
 `r = 1`, B2 varies the shelf rows at width 10, B3 varies both simultaneously. The gap columns
 cover only the configuration levels on which the fixed-parameter algorithm terminates without
-exception (1080, 840 and 760 instances) — above those levels the surviving instances are
+exception (1080, 840 and 760 instances). Above those levels the surviving instances are
 selection-biased and no exact reference exists.
 
 Worst observed cases: Nearest Neighbor 35.71 % / 44.36 % / 50.00 %, Christofides
 15.79 % / 23.53 % / 24.24 %. The 3/2 bound was therefore never approached.
 
-Mean computation times: Nearest Neighbor below 2 ms throughout, Christofides 5–6 ms, and the
-fixed-parameter algorithm from 3.6 ms at `r = 1` to 53.0 s at `r = 7`. From `r = 8` most runs
-exceed the 90 s limit — 658 of the 10,200 runs ended in a timeout.
+Mean computation times, measured in B2 at the full warehouse width: Nearest Neighbor 0.23 ms
+with a worst case of 0.70 ms, and Christofides 3.29 ms on average, rising with the order size
+from 0.33 ms at five products to 8.72 ms at thirty. The fixed-parameter algorithm needs 1.64 ms
+at `r = 1` and 58.6 s at `r = 7`. From `r = 8` most runs exceed the 90 s limit, at `r = 8`
+already 96 of 120. 658 of the 10,200 runs ended in a timeout.
 
 **Nearest Neighbor** always moves to the closest unvisited location. Fast, but without a
 constant approximation guarantee: for metric instances the ratio to the optimal tour grows as
@@ -56,8 +58,8 @@ implementation the bottleneck is not the matching but building the edge weights,
 dominates the runtime for large orders.
 
 **Fixed Parameter** implements the dynamic programme of Cambazard & Catusse. It sweeps the
-warehouse column by column and carries a *frontier state* — one parity per cross aisle plus a
-connected-component label — so the state count depends only on `h`, not on the warehouse width.
+warehouse column by column and carries a *frontier state* so the state count depends only 
+on `h`, not on the warehouse width.
 The number of reachable states is `|Ω(h)| = Σ_k C(h,k) · S_k` with the little Schröder numbers
 `S_k`, because the component partition is non-crossing. A dominance rule keeps only the
 cheapest partial solution per state. The sweep graph is built only up to the topmost and
@@ -82,8 +84,10 @@ docker run --rm -p 127.0.0.1:5000:5000 oprp-bench
 
 The application is then available at `http://localhost:5000`. On start the container prints
 what else it can do, so no prior knowledge of this README is needed. The image is based on
-`python:3.12-slim` (Python 3.12.13) and installs the pinned versions from `requirements.txt`
-and `requirements-dev.txt`.
+`python:3.12-slim` and installs the pinned versions from `requirements.txt` and
+`requirements-dev.txt`. The reported measurements ran on Python 3.12.13. Because
+`python:3.12-slim` is a moving tag, a build today resolves to a newer patch release, 3.12.14 at
+the time of writing.
 
 ### Everything the container can do: `make help`
 
@@ -166,7 +170,7 @@ docker run --rm -v "$PWD/results:/data" oprp-bench make b1 BENCH_OUT_DIR=/data
 
 `make b1` is a thin wrapper around `python bench_night_runner.py b1`, so calling the runner
 directly works just as well. Both directories can be redirected with the environment variables
-`BENCH_PAYLOAD_DIR` and `BENCH_OUT_DIR`; without Docker, the defaults already point at the
+`BENCH_PAYLOAD_DIR` and `BENCH_OUT_DIR`. Without Docker, the defaults already point at the
 directories in this repository.
 
 Verified end to end: a fresh `docker run --rm -v ... oprp-bench make b1 BENCH_OUT_DIR=/data`
@@ -189,7 +193,7 @@ Without it every measurement would include the one-off interpreter initialisatio
 run is executed in its own forked process: roughly 1.6 ms per run, and only for Christofides
 and the fixed-parameter algorithm, which are the two solvers that use NetworkX. The measured
 span itself runs from instantiating the solver until the closed tour and its length are
-available; expanding that tour into a walkable cell sequence serves the visualisation only and
+available. Expanding that tour into a walkable cell sequence serves the visualisation only and
 lies outside the measurement.
 
 ## Validation
@@ -210,7 +214,7 @@ against two independent controls: an exhaustive breadth-first search over all 1,
 location pairs of seven layouts between 1x1 and 10x8, and the A* implementation in
 `algorithms/a_star.py`. A* is no longer part of the application — the drawn path is built by a
 closed-form three-segment construction — and now serves only as the search-based reference in
-the test suite.
+the test suite and in the micro-benchmark `benchmark_path_construction.py`.
 
 ## Local installation without Docker
 
@@ -230,12 +234,12 @@ Where to find what.
 | Path | Contents |
 |---|---|
 | `Makefile` | every task with its inputs, outputs, runtime and memory footprint — start here |
-| `Dockerfile` | container definition; the build and run commands are the comments at the end |
+| `Dockerfile` | container definition, the build and run commands are the comments at the end |
 | `docker-entrypoint.sh` | prints the usage notice on container start, then runs the given command |
 | `app.py` | Flask entry point, solver registry, `/benchmark` driver, CSV export |
 | `routes/` | the three solvers plus `scfs_plus.py`, all inheriting from `BaseRoute` |
 | `warehouse/grid.py` | warehouse model and the constant-time distance formula |
-| `algorithms/a_star.py` | A* pathfinding, now only the search-based reference in the tests |
+| `algorithms/a_star.py` | A* pathfinding, now only the search-based reference in the tests and the micro-benchmark |
 | `utils/` | shared helpers |
 | `tests/` | pytest suite, 126 tests |
 | `verify_optimality.py` | optimality check of the fixed-parameter algorithm against Held-Karp |
@@ -244,7 +248,7 @@ Where to find what.
 | `benchmarks/results/` | default output directory for the benchmark CSVs (redirect with `BENCH_OUT_DIR`) |
 | `benchmarks/run_bench_http.sh` | alternative runner going through the HTTP endpoint |
 | `benchmark_path_construction.py` | micro-benchmark of the closed-form path construction |
-| `templates/`, `static/` | frontend; the JavaScript modules live in `static/js/` |
+| `templates/`, `static/` | frontend, the JavaScript modules live in `static/scripts/` |
 | `ASTAR_ERSATZ.md` | why A* was replaced by the closed-form construction in the drawn path |
 
 The written thesis itself lives in a separate repository
@@ -255,28 +259,32 @@ this repository produces are the data behind the tables and plots there.
 
 ### Backend (Python/Flask)
 
-- `app.py` — Flask entry point, solver registry, benchmark driver and CSV export
-- `routes/` — solver classes inheriting from the abstract `BaseRoute`
-  - `nearest_neighbor.py`, `christofides.py`, `fixed_parameter.py`, `scfs_plus.py`
-- `warehouse/grid.py` — warehouse grid model with constant-time distance calculation
-- `algorithms/a_star.py` — A* pathfinding, used to turn a visit sequence into a walkable path
-- `verify_optimality.py` — optimality check against the Held-Karp reference solver
+`app.py` is the Flask entry point and holds the solver registry, the benchmark driver and the
+CSV export. The solvers themselves live in `routes/` as classes inheriting from the abstract
+`BaseRoute`, namely `nearest_neighbor.py`, `christofides.py`, `fixed_parameter.py` and
+`scfs_plus.py`. `warehouse/grid.py` models the warehouse and provides the constant-time
+distance calculation on which every route length depends. A visit sequence is turned into a
+walkable cell sequence by the closed-form construction in `algorithms/closed_form_route.py`
+and, for the fixed-parameter solver, by `utils/path_expansion.py`. `verify_optimality.py`
+checks the fixed-parameter algorithm against the Held-Karp reference solver.
 
 ### Frontend (vanilla JavaScript)
 
-MVC-style architecture with ES6 modules, no external libraries:
-
-- `AppController.js` — coordinates user input, API calls and rendering
-- `WarehouseRenderer.js` — canvas-based warehouse grid visualisation
-- `ModalView.js` — side-by-side algorithm comparison
-- `CoordinateTranslator.js` — grid-to-pixel coordinate mapping
+An MVC-style architecture built from ES6 modules, located in `static/scripts/`.
+`AppController.js` coordinates user input, API calls and rendering. `WarehouseRenderer.js`
+draws the warehouse grid on a canvas, `ModalView.js` shows the algorithms side by side, and
+`CoordinateTranslator.js` maps grid positions to pixels. The warehouse and the routes are drawn
+without any library. The only external dependency of the frontend is Plotly, loaded from a CDN
+in `templates/index.html` and used by `BenchmarkCharts.js` for the benchmark diagrams. Those
+diagrams therefore need internet access, everything else in the application works offline.
 
 ## Technologies
 
-- **Flask** — web framework and REST API
-- **NetworkX** — graph operations (Blossom matching, Eulerian circuit)
-- **PuLP** — MILP modelling with CBC, used only by `scfs_plus.py`
-- **pytest** — testing
+**Flask** serves the web application and the REST API. **NetworkX** provides the graph
+operations Christofides needs, the Blossom matching and the Eulerian circuit. **PuLP** models
+the MILP and solves it with CBC, used only by `scfs_plus.py` and therefore by nothing the
+thesis reports. **Plotly** renders the benchmark diagrams in the browser and is the frontend's
+only external dependency. The tests run under **pytest**.
 
 ## Author
 
