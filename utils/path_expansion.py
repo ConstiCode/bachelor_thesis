@@ -1,9 +1,9 @@
 """Expansion von Wegpunkten in einen schrittweisen Gitterpfad.
 
-Gemeinsame Stelle fuer die Logik, die bisher nur als
-``FixedParameter._expand_waypoints`` (routes/fixed_parameter.py) existierte.
-Die dortige Kopie ist verhaltensgleich und bleibt absichtlich unangetastet.
-Neuer Code soll diese Funktion verwenden.
+Einzige Stelle fuer diese Logik. Benutzt von
+``FixedParameter.expand_route`` (routes/fixed_parameter.py) und von
+``WareHouseGrid.construct_warehouse_path`` (warehouse/grid.py), damit die
+geschlossene Pfadkonstruktion und die DP dieselbe Expansion verwenden.
 """
 
 

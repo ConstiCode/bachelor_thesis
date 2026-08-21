@@ -14,6 +14,7 @@ import pytest
 
 from warehouse.grid import WareHouseGrid
 from routes.fixed_parameter import FixedParameter
+from utils.path_expansion import expand_waypoints
 from routes.nearest_neighbor import NearestNeighbor
 from routes import Christofides
 
@@ -256,10 +257,10 @@ class TestWaypointExpansion:
         """Nicht achsenparallele Wegpunkte wurden frueher stillschweigend als
         horizontales Segment expandiert - der Pfad endete an der falschen Zelle."""
         with pytest.raises(AssertionError):
-            FixedParameter._expand_waypoints([(0, 0), (3, 7)])
+            expand_waypoints([(0, 0), (3, 7)])
 
     def test_axis_aligned_pairs_expand(self):
-        assert FixedParameter._expand_waypoints([(0, 0), (0, 3)]) == [
+        assert expand_waypoints([(0, 0), (0, 3)]) == [
             (0, 0), (0, 1), (0, 2), (0, 3)]
-        assert FixedParameter._expand_waypoints([(3, 7), (0, 7)]) == [
+        assert expand_waypoints([(3, 7), (0, 7)]) == [
             (3, 7), (2, 7), (1, 7), (0, 7)]

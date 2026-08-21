@@ -7,7 +7,6 @@ import networkx as nx
 
 
 class Christofides(BaseRoute):
-    use_blossom = True
 
     def compute_route(self):
         self.locations = list(self.locations)  # Defensive copy to avoid mutating shared state
@@ -21,8 +20,7 @@ class Christofides(BaseRoute):
         # get the odd degree nodes
         odd_nodes = self._get_odd_nodes(mst)
 
-        matched_nodes = self.minimum_weight_perfect_matching(
-            odd_nodes) if not self.use_blossom else self.minimum_weight_perfect_matching_blossom(odd_nodes)
+        matched_nodes = self.minimum_weight_perfect_matching_blossom(odd_nodes)
 
         self.augment_mst_with_matching(mst, matched_nodes)
         route = []
@@ -116,33 +114,6 @@ class Christofides(BaseRoute):
         locs = [item for item, count in Counter(inner_tuple for _, *tuples in mst for inner_tuple in tuples).items() if
                 count % 2 != 0]
         return locs
-
-    def minimum_weight_perfect_matching(self, odd_nodes):
-        matched = set()
-        matching = []
-
-        for i in range(len(odd_nodes)):
-            if odd_nodes[i] in matched:
-                continue
-            best_dist = float('inf')
-            best_match = None
-            for j in range(i + 1, len(odd_nodes)):
-                if odd_nodes[j] in matched:
-                    continue
-                d = self._get_mst_weights(
-                    [{'x': odd_nodes[i][0],
-                      'y': odd_nodes[i][1]},
-                     {'x': odd_nodes[j][0],
-                      'y': odd_nodes[j][1]}])[0][0]
-                if d < best_dist:
-                    best_dist = d
-                    best_match = odd_nodes[j]
-            if best_match:
-                matching.append((odd_nodes[i], best_match))
-                matched.add(odd_nodes[i])
-                matched.add(best_match)
-
-        return matching
 
     def augment_mst_with_matching(self, mst, matching):
         for node1, node2 in matching:

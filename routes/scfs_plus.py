@@ -1,5 +1,4 @@
 import networkx as nx
-from itertools import combinations
 from routes.base import BaseRoute
 from warehouse.grid import WareHouseGrid
 
@@ -444,7 +443,5 @@ class ScfsPlus(BaseRoute):
 
         # Close the tour by returning to the depot
         visit_sequence.append(self._walkable_to_shelf[depot])
-
-        return visit_sequence
 
         return visit_sequence

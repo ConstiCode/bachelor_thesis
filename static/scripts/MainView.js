@@ -17,7 +17,6 @@ export default class MainView {
         this.triggerRouteBtn = document.getElementById("triggerRouteCalculationButton");
 
         this.locationTableBody = document.querySelector("#locationTable tbody");
-        this.routeInfoContainer = document.getElementById("routeInfo");
 
         this.errorContainer = document.getElementById("error-container");
         this.busyIndicator = document.getElementById("busy-indicator");
@@ -74,15 +73,6 @@ export default class MainView {
     }
 
     /**
-     * Returns the currently active tab name.
-     * @returns {string} "singleRun" or "benchmark"
-     */
-    getActiveTab() {
-        const activeBtn = document.querySelector(".tab-btn.active");
-        return activeBtn ? activeBtn.dataset.tab : "singleRun";
-    }
-
-    /**
      * Gets the current floor plan values from the inputs.
      * @returns {{aisles: number, crossings: number}}
      */
@@ -114,7 +104,6 @@ export default class MainView {
      */
     clearData() {
         this.locationTableBody.innerHTML = "";
-        this.routeInfoContainer.innerHTML = "";
         this.errorContainer.textContent = "";
     }
 

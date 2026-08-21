@@ -26,13 +26,6 @@ class BaseRoute(ABC):
         """
         return tour
 
-    def compute_route_length(self, route_sequence: list[tuple[int, int]]) -> int:
-        """
-        Computes the route length of the initial route. Where the route is the sequence of locations to visit.
-        :return: int
-        """
-        return sum(self.grid.calculate_warehouse_distance(p1, p2) for p1, p2 in zip(route_sequence, route_sequence[1:]))
-
     def compute_and_set_route_length(self, visit_sequence: list[tuple[int, int]]):
         """
         Unified route length calculation for all algorithms.

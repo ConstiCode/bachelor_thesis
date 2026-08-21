@@ -425,21 +425,6 @@ class FixedParameter(BaseRoute):
         # Wegpunkte immer gangparallel liegen.
         return raw
 
-    @staticmethod
-    def _expand_waypoints(waypoints):
-        """Expand waypoints into a step-by-step grid path.
-
-        Consecutive waypoints always share the same x or y coordinate
-        (they lie on aisles or corridors), so we enumerate each grid cell
-        between them. This produces a path identical in format to what
-        Christofides and NearestNeighbor return.
-
-        Die Logik liegt in utils.path_expansion, damit die geschlossene
-        Pfadkonstruktion in WareHouseGrid.construct_warehouse_path dieselbe
-        Expansion benutzt und keine zweite Kopie entsteht.
-        """
-        return expand_waypoints(waypoints)
-
     def expand_route(self, tour):
         """Expandiert die Wegpunkte der Tour in eine begehbare Zellenfolge
         fuer die Darstellung im Frontend.

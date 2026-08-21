@@ -30,7 +30,7 @@ class WareHouseGrid:
         total_rows = self.num_rows * shelf_height + (self.num_rows + 1) * aisle_height
         total_cols = self.num_isles * shelf_width + (self.num_isles + 1) * aisle_width
 
-        grid = [[1 for _ in range(total_cols)] for _ in range(total_rows + 3)]
+        grid = [[1 for _ in range(total_cols)] for _ in range(total_rows)]
 
         for row_block in range(self.num_rows):
             for isle in range(self.num_isles):
@@ -40,9 +40,6 @@ class WareHouseGrid:
                 for y in range(top, top + shelf_height):
                     for x in range(left, left + shelf_width):
                         grid[y][x] = 0  # 0 means shelf (not walkable)
-
-        # mark the packing table as a 1
-        grid[total_rows][(total_cols // 2) - 1] = 0
 
         return grid
 

@@ -25,8 +25,8 @@ def test_base_route_instantiation():
 def test_compute_route_length():
     grid = MockGrid()
     route = ExampleRoute(grid, [1, 6, 13], 1)
-    route_sequence = [(0, 0), (1, 0), (1, 1)]
+    visit_sequence = [(0, 0), (1, 0), (1, 1)]
 
-    length = route.compute_route_length(route_sequence)
+    route.compute_and_set_route_length(visit_sequence)
     expected_length = 20
-    assert expected_length == length
+    assert expected_length == route.route_length
