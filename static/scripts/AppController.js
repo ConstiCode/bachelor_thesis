@@ -99,6 +99,13 @@ export default class AppController {
                 return;
             }
 
+            // The interactive endpoint runs the solvers without a timeout, so a
+            // large layout can occupy the request for a long time. Tell the user
+            // instead of leaving the page looking frozen.
+            this.mainView.showBusy(algorithms.includes("fixedParameter")
+                ? "Calculating route... the exact algorithm can take a long time on large layouts."
+                : "Calculating route...");
+
             // call service
             const response = await this.api.calculateRoutes(this.model, this.model.stockLocations, algorithms);
 
@@ -117,6 +124,8 @@ export default class AppController {
 
         } catch (error) {
             this.mainView.showError(error.message);
+        } finally {
+            this.mainView.hideBusy();
         }
     }
 

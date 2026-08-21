@@ -15,6 +15,8 @@ export default class MainView {
         this.routeInfoContainer = document.getElementById("routeInfo");
 
         this.errorContainer = document.getElementById("error-container");
+        this.busyIndicator = document.getElementById("busy-indicator");
+        this.busyMessage = document.getElementById("busyMessage");
 
         // Tab elements
         this.tabButtons = document.querySelectorAll(".tab-btn");
@@ -24,7 +26,7 @@ export default class MainView {
 
         this._initTabs();
 
-        if (!this.locationTableBody || !this.errorContainer) {
+        if (!this.locationTableBody || !this.errorContainer || !this.busyIndicator) {
             console.error("MainView failed to find critical DOM elements.");
         }
     }
@@ -135,6 +137,32 @@ export default class MainView {
      */
     showError(message) {
         this.errorContainer.textContent = message;
+    }
+
+    /**
+     * Shows the loading indicator and locks the controls that would start a
+     * second run. The fixed-parameter solver takes tens of seconds on large
+     * layouts, so without this the application looks frozen.
+     * @param {string} message
+     */
+    showBusy(message) {
+        this.busyMessage.textContent = message;
+        this.busyIndicator.classList.remove("hidden");
+        this._setControlsDisabled(true);
+    }
+
+    /**
+     * Hides the loading indicator and unlocks the controls.
+     */
+    hideBusy() {
+        this.busyIndicator.classList.add("hidden");
+        this._setControlsDisabled(false);
+    }
+
+    _setControlsDisabled(disabled) {
+        this.changeFloorPlanBtn.disabled = disabled;
+        this.generateLocationsBtn.disabled = disabled;
+        this.triggerRouteBtn.disabled = disabled;
     }
 
     /**

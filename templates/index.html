@@ -11,6 +11,10 @@
     <!-- left side -->
 
     <div id="error-container" class="error-message"></div>
+    <div id="busy-indicator" class="busy-indicator hidden">
+        <div class="spinner spinner-inline"></div>
+        <span id="busyMessage">Calculating route...</span>
+    </div>
     <canvas id="warehouseCanvas" width="200" height="100" style="border:1px solid #000000;"></canvas>
 
     <!-- Benchmark results area (hidden by default, replaces canvas in benchmark mode) -->
