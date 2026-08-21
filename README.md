@@ -71,16 +71,51 @@ why some runs still terminate at `r ≥ 8`.
 
 ## Running with Docker
 
-This is the reproducible path and requires nothing but Docker.
+This is the reproducible path and requires nothing but Docker. The build and run commands are
+also repeated as comments at the end of the `Dockerfile`, ready to copy after a
+`cat Dockerfile`.
 
 ```bash
 docker build -t oprp-bench .
 docker run --rm -p 127.0.0.1:5000:5000 oprp-bench
 ```
 
-The application is then available at `http://127.0.0.1:5000`. The image is based on
+The application is then available at `http://localhost:5000`. On start the container prints
+what else it can do, so no prior knowledge of this README is needed. The image is based on
 `python:3.12-slim` (Python 3.12.13) and installs the pinned versions from `requirements.txt`
 and `requirements-dev.txt`.
+
+### Everything the container can do: `make help`
+
+Every task has a Makefile target. `make` without arguments lists them and states, for each
+one, which files it reads, which files it produces, roughly how long it takes and roughly how
+much RAM and disk space it needs:
+
+```bash
+docker run --rm oprp-bench make help
+```
+
+| Target | What it does | Duration |
+|---|---|---|
+| `make app` | start the web application | until interrupted |
+| `make test` | run the test suite (126 tests) | seconds |
+| `make verify` | check the fixed-parameter algorithm against Held-Karp (182 instances) | seconds |
+| `make b1` | benchmark B1, width 1 to 10 at `r = 1` | under a minute |
+| `make b2` | benchmark B2, shelf rows 1 to 10 at width 10 | about 11 hours |
+| `make b3` | benchmark B3, square layouts 1x1 to 10x10 | about 10 hours |
+| `make bench-all` | B1, B2 and B3 in sequence | about 21 hours |
+| `make clean` | remove `__pycache__/` and `.pytest_cache/` | seconds |
+
+Benchmark output goes to `benchmarks/results/` by default and can be redirected with
+`BENCH_OUT_DIR`, which is how the results reach a mounted host volume:
+
+```bash
+mkdir -p results
+docker run --rm -v "$PWD/results:/data" oprp-bench make b1 BENCH_OUT_DIR=/data
+```
+
+Targets never overwrite an existing CSV — they append, so an interrupted run only costs the
+stage in progress.
 
 ## Running the benchmarks
 
@@ -126,13 +161,17 @@ layer. It writes after every configuration and calls `fsync`, so an interrupted 
 the stage in progress, and a second call appends to the existing file:
 
 ```bash
-docker run --rm -v "$PWD/benchmarks/results:/app/benchmarks/results" \
-       oprp-bench python bench_night_runner.py b1
+docker run --rm -v "$PWD/results:/data" oprp-bench make b1 BENCH_OUT_DIR=/data
 ```
 
-Results land in `benchmarks/results/b1.csv`. Both directories can be redirected with the
-environment variables `BENCH_PAYLOAD_DIR` and `BENCH_OUT_DIR`; without Docker, the defaults
-already point at the directories in this repository.
+`make b1` is a thin wrapper around `python bench_night_runner.py b1`, so calling the runner
+directly works just as well. Both directories can be redirected with the environment variables
+`BENCH_PAYLOAD_DIR` and `BENCH_OUT_DIR`; without Docker, the defaults already point at the
+directories in this repository.
+
+Verified end to end: a fresh `docker run --rm -v ... oprp-bench make b1 BENCH_OUT_DIR=/data`
+reproduces all 3240 rows of the B1 data set used in the thesis with zero deviations in route
+length or status.
 
 **`benchmarks/run_bench_http.sh`** takes the other path: it posts a payload to a running
 instance, converts the response to CSV and writes a log. It needs the application to be up
@@ -156,8 +195,8 @@ lies outside the measurement.
 ## Validation
 
 ```bash
-python verify_optimality.py   # 182/182 instances: FixedParameter == optimum
-pytest tests/                 # 126 tests
+make verify   # 182/182 instances: FixedParameter == optimum
+make test     # 126 tests
 ```
 
 `verify_optimality.py` deterministically generates 182 random instances with up to 5 shelf
@@ -183,6 +222,34 @@ source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
 python app.py
 ```
+
+## Repository layout
+
+Where to find what.
+
+| Path | Contents |
+|---|---|
+| `Makefile` | every task with its inputs, outputs, runtime and memory footprint — start here |
+| `Dockerfile` | container definition; the build and run commands are the comments at the end |
+| `docker-entrypoint.sh` | prints the usage notice on container start, then runs the given command |
+| `app.py` | Flask entry point, solver registry, `/benchmark` driver, CSV export |
+| `routes/` | the three solvers plus `scfs_plus.py`, all inheriting from `BaseRoute` |
+| `warehouse/grid.py` | warehouse model and the constant-time distance formula |
+| `algorithms/a_star.py` | A* pathfinding, now only the search-based reference in the tests |
+| `utils/` | shared helpers |
+| `tests/` | pytest suite, 126 tests |
+| `verify_optimality.py` | optimality check of the fixed-parameter algorithm against Held-Karp |
+| `bench_night_runner.py` | the runner that produced the measurements reported in the thesis |
+| `benchmarks/payloads/` | `b1.json`, `b2.json`, `b3.json` — the three benchmark configurations |
+| `benchmarks/results/` | default output directory for the benchmark CSVs (redirect with `BENCH_OUT_DIR`) |
+| `benchmarks/run_bench_http.sh` | alternative runner going through the HTTP endpoint |
+| `benchmark_path_construction.py` | micro-benchmark of the closed-form path construction |
+| `templates/`, `static/` | frontend; the JavaScript modules live in `static/js/` |
+| `ASTAR_ERSATZ.md` | why A* was replaced by the closed-form construction in the drawn path |
+
+The written thesis itself lives in a separate repository
+([bachelor-thesis-tex](https://github.com/ConstiCode/bachelor-thesis-tex)). The benchmark CSVs
+this repository produces are the data behind the tables and plots there.
 
 ## Architecture
 
