@@ -101,4 +101,4 @@ bench-all: b1 b2 b3
 
 clean:
 	find . -name '__pycache__' -type d -prune -exec rm -rf {} +
-	rm -rf .pytest_cache
+	find . -name '.pytest_cache' -type d -prune -exec rm -rf {} +

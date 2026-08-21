@@ -1,11 +1,20 @@
 .venv
 __pycache__
 *.pyc
-*.csv
 .git
 .idea
+.idea_backup
+**/.pytest_cache
+
+# Benchmarkergebnisse gehoeren nicht ins Image. Sonst haengen die
+# Benchmark-Targets an eine mitgelieferte CSV an, statt eine neue zu
+# schreiben, und ein Reproduktionslauf liefert die doppelte Zeilenzahl.
+# Das Muster braucht **, damit es auch benchmarks/results/ erfasst.
+**/*.csv
+**/*.bak
+
 # tests/ wird im Image benoetigt: verify_optimality.py laedt den
 # Held-Karp-Referenzloeser aus tests/routes/test_fixed_parameter_dp.py
-img.png
-img_1.png
-cv.pdf
+
+# Literatur und sonstige PDFs sind nicht Teil der Abgabe.
+**/*.pdf
