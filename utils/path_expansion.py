@@ -2,9 +2,8 @@
 
 Gemeinsame Stelle fuer die Logik, die bisher nur als
 ``FixedParameter._expand_waypoints`` (routes/fixed_parameter.py) existierte.
-Die dortige Kopie ist verhaltensgleich und bleibt in diesem Auftrag
-absichtlich unangetastet (siehe ASTAR_ERSATZ.md); neuer Code soll diese
-Funktion verwenden.
+Die dortige Kopie ist verhaltensgleich und bleibt absichtlich unangetastet.
+Neuer Code soll diese Funktion verwenden.
 """
 
 

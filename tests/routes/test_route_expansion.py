@@ -1,8 +1,8 @@
 """Integrationstests fuer die Pfadexpansion der Solver auf einem echten Gitter.
 
-Sichert den Austausch von A* gegen die geschlossene Konstruktion ab
-(siehe ASTAR_ERSATZ.md). Der gemockte Test in test_nearest_neighbor.py prueft
-nur die Verdrahtung, hier laeuft die echte Expansion.
+Sichert den Austausch von A* gegen die geschlossene Konstruktion ab. Der
+gemockte Test in test_nearest_neighbor.py prueft nur die Verdrahtung, hier
+laeuft die echte Expansion.
 
 Zentrale Invariante: die gezeichnete Pfadlaenge stimmt mit der berichteten
 Routenlaenge ueberein, also len(full_route) - 1 == solver.route_length. Damit

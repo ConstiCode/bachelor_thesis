@@ -250,7 +250,6 @@ Where to find what.
 | `benchmark_path_construction.py` | micro-benchmark of the closed-form path construction |
 | `templates/`, `static/` | frontend, the JavaScript modules live in `static/scripts/` |
 | `static/vendor/` | vendored Plotly, with its origin and licence in the directory's own README |
-| `ASTAR_ERSATZ.md` | why A* was replaced by the closed-form construction in the drawn path |
 
 The written thesis itself lives in a separate repository
 ([bachelor-thesis-tex](https://github.com/ConstiCode/bachelor-thesis-tex)). The benchmark CSVs

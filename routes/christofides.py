@@ -39,7 +39,7 @@ class Christofides(BaseRoute):
         return route
 
     def expand_route(self, tour):
-        # Pfadexpansion in geschlossener Form (siehe ASTAR_ERSATZ.md).
+        # Pfadexpansion in geschlossener Form statt A*-Suche.
         router = ClosedFormRoute(self.grid)
         return router.calculate_closed_form_route([{'x': x, 'y': y} for (x, y) in tour])
 

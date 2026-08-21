@@ -22,7 +22,7 @@ class NearestNeighbor(BaseRoute):
         return route
 
     def expand_route(self, tour):
-        # Pfadexpansion in geschlossener Form (siehe ASTAR_ERSATZ.md). Nimmt die
+        # Pfadexpansion in geschlossener Form statt A*-Suche. Nimmt die
         # WareHouseGrid selbst, nicht das rohe Gitter, weil sie die
         # Fallunterscheidung von calculate_warehouse_distance mitbenutzt.
         router = ClosedFormRoute(self.grid)
