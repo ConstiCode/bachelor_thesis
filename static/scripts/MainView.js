@@ -1,18 +1,4 @@
-/**
- * Todo import it rather than leaving it here.
- * This helper function is from domUtils.js.
- * We move it here, or import it, because it is PURELY
- * a view-related function.
- */
-function addLocationToTable(tbody, loc) {
-    const row = document.createElement('tr');
-    row.innerHTML = `
-        <td>${loc.id}</td>
-        <td>${loc.x}</td>
-        <td>${loc.y}</td>
-    `;
-    tbody.appendChild(row);
-}
+import { addLocationToTable } from "./domUtils.js";
 
 export default class MainView {
     constructor() {
