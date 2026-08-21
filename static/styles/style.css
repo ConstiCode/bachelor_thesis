@@ -905,16 +905,28 @@ button:active {
    STATUS — Fehlermeldungen und Ladeanzeige
    ======================================================================== */
 
+/* Beide Anzeigen liegen als Overlay ueber der Seite, nicht im Fluss.
+   #generalContainer ist ein Flex-Container in Zeilenrichtung, ein Kind darin
+   wuerde das Canvas seitlich verschieben, sobald es erscheint oder
+   verschwindet. */
+.error-message,
+.busy-indicator {
+    position: fixed;
+    right: 24px;
+    z-index: 1000;
+    max-width: 420px;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 0.95rem;
+}
+
 /* Der Container liegt dauerhaft im DOM und wird per textContent gefuellt.
    Ohne Text bleibt er unsichtbar, damit kein leerer Kasten stehen bleibt. */
 .error-message {
+    top: 24px;
     color: #ff453a;
-    background-color: rgba(255, 69, 58, 0.1);
-    border: 1px solid rgba(255, 69, 58, 0.4);
-    border-radius: 8px;
-    padding: 12px 16px;
-    margin-bottom: 12px;
-    font-size: 0.95rem;
+    background-color: rgba(44, 44, 46, 0.95);
+    border: 1px solid rgba(255, 69, 58, 0.6);
     white-space: pre-line;
 }
 
@@ -926,16 +938,13 @@ button:active {
    braucht bei grossem r zweistellige Sekunden, ohne Rueckmeldung wirkt die
    Anwendung dabei eingefroren. */
 .busy-indicator {
+    bottom: 24px;
     display: flex;
     align-items: center;
     gap: 12px;
-    background-color: #2c2c2e;
+    background-color: rgba(44, 44, 46, 0.95);
     border: 1px solid #3a3a3c;
-    border-radius: 8px;
-    padding: 12px 16px;
-    margin-bottom: 12px;
     color: #f5f5f7;
-    font-size: 0.95rem;
 }
 
 .busy-indicator.hidden {

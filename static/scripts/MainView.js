@@ -1,5 +1,10 @@
 import { addLocationToTable } from "./domUtils.js";
 
+// Wartezeit, bevor die Ladeanzeige erscheint. Kurz genug, dass ein langer
+// Lauf sofort Rueckmeldung gibt, lang genug, dass schnelle Laeufe still
+// bleiben.
+const BUSY_DELAY_MS = 250;
+
 export default class MainView {
     constructor() {
         this.aisleInput = document.getElementById("warehouseAisleCount");
@@ -147,14 +152,21 @@ export default class MainView {
      */
     showBusy(message) {
         this.busyMessage.textContent = message;
-        this.busyIndicator.classList.remove("hidden");
         this._setControlsDisabled(true);
+
+        // Only show up after a short delay. Small layouts are done in a few
+        // milliseconds, where the indicator would just flash up and vanish.
+        clearTimeout(this._busyTimer);
+        this._busyTimer = setTimeout(() => {
+            this.busyIndicator.classList.remove("hidden");
+        }, BUSY_DELAY_MS);
     }
 
     /**
      * Hides the loading indicator and unlocks the controls.
      */
     hideBusy() {
+        clearTimeout(this._busyTimer);
         this.busyIndicator.classList.add("hidden");
         this._setControlsDisabled(false);
     }
