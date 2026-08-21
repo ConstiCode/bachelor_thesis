@@ -249,6 +249,7 @@ Where to find what.
 | `benchmarks/run_bench_http.sh` | alternative runner going through the HTTP endpoint |
 | `benchmark_path_construction.py` | micro-benchmark of the closed-form path construction |
 | `templates/`, `static/` | frontend, the JavaScript modules live in `static/scripts/` |
+| `static/vendor/` | vendored Plotly, with its origin and licence in the directory's own README |
 | `ASTAR_ERSATZ.md` | why A* was replaced by the closed-form construction in the drawn path |
 
 The written thesis itself lives in a separate repository
@@ -274,17 +275,17 @@ An MVC-style architecture built from ES6 modules, located in `static/scripts/`.
 `AppController.js` coordinates user input, API calls and rendering. `WarehouseRenderer.js`
 draws the warehouse grid on a canvas, `ModalView.js` shows the algorithms side by side, and
 `CoordinateTranslator.js` maps grid positions to pixels. The warehouse and the routes are drawn
-without any library. The only external dependency of the frontend is Plotly, loaded from a CDN
-in `templates/index.html` and used by `BenchmarkCharts.js` for the benchmark diagrams. Those
-diagrams therefore need internet access, everything else in the application works offline.
+without any library. The one third-party dependency of the frontend is Plotly, used by
+`BenchmarkCharts.js` for the two benchmark diagrams. It is vendored in `static/vendor/` instead
+of being pulled from a CDN, so the application needs no internet access at all.
 
 ## Technologies
 
 **Flask** serves the web application and the REST API. **NetworkX** provides the graph
 operations Christofides needs, the Blossom matching and the Eulerian circuit. **PuLP** models
 the MILP and solves it with CBC, used only by `scfs_plus.py` and therefore by nothing the
-thesis reports. **Plotly** renders the benchmark diagrams in the browser and is the frontend's
-only external dependency. The tests run under **pytest**.
+thesis reports. **Plotly** renders the benchmark diagrams in the browser and ships with the
+repository under `static/vendor/`. The tests run under **pytest**.
 
 ## Author
 
