@@ -35,13 +35,23 @@ export default class CoordinateTranslator {
         const totalGridPixelWidth = model.numColumns * WarehouseModel.SHELF_TOTAL_WIDTH * this.horizontalGridSize;
         const totalGridPixelHeight = model.numCrossings * WarehouseModel.SHELF_TOTAL_HEIGHT * this.verticalGridSize;
 
-        const startX = (canvasWidth / 2) - (totalGridPixelWidth / 2);
+        this.offsetX = (canvasWidth / 2) - (totalGridPixelWidth / 2);
 
-        // Y-axis is inverted (0 is top)
-        const startY = (canvasHeight / 2) + (totalGridPixelHeight / 2);
+        // Das Backend zaehlt Gitter-y vom Depot auf (0,0) weg nach oben, die
+        // Zeichenflaeche zaehlt Pixel-y nach unten. Die Zeichnung wird deshalb
+        // an der Waagerechten gespiegelt, sonst erscheint das Depot oben links
+        // statt unten links. maxGridY ist der Index des obersten Quergangs,
+        // offsetY die Pixelzeile genau dieser Gitterzeile.
+        this.maxGridY = model.numCrossings * WarehouseModel.SHELF_TOTAL_HEIGHT;
+        this.offsetY = (canvasHeight / 2) - (totalGridPixelHeight / 2);
+    }
 
-        this.offsetX = startX;
-        this.offsetY = startY - ((model.numCrossings - 1) * WarehouseModel.SHELF_TOTAL_HEIGHT * this.verticalGridSize);
+    /**
+     * Converts a grid row to the pixel row of its upper edge. This is the only
+     * place where the y-axis is mirrored.
+     */
+    gridYToPixel(gridY) {
+        return this.offsetY + ((this.maxGridY - gridY) * this.verticalGridSize);
     }
 
     /**
@@ -49,7 +59,7 @@ export default class CoordinateTranslator {
      */
     gridToPixel(gridPos) {
         let x = ((gridPos.x) * this.horizontalGridSize) + this.offsetX;
-        let y = ((gridPos.y) * this.verticalGridSize) + this.offsetY;
+        let y = this.gridYToPixel(gridPos.y);
 
         // Center the point in the grid cell
         x += 0.5 * this.horizontalGridSize;
@@ -73,13 +83,15 @@ export default class CoordinateTranslator {
 
         const aislePixelWidth = WarehouseModel.AISLE_GRID_WIDTH * this.horizontalGridSize;
 
-        const aislePixelHeight = WarehouseModel.AISLE_GRID_HEIGHT * this.verticalGridSize;
-
-        // set the table on the left side
+        // set the table on the left side, on the leftmost vertical aisle
         const positionX = this.offsetX + (aislePixelWidth / 2) - (width / 2);
 
-        // Center the table vertically over the top aisle
-        const positionY = (this.offsetY + (aislePixelHeight / 2) - (height / 2)) - 100;
+        // Das Depot liegt auf (0,0), also am linken Ende des untersten
+        // Quergangs, und wird ausserhalb des Gangnetzes gezeichnet. Der Kasten
+        // sitzt deshalb 1,5 Zellen unterhalb dieses Quergangs. Das Mass in
+        // Gitterzellen haelt den Abstand bei jeder Lagergroesse und in jeder
+        // Zoomstufe gleich.
+        const positionY = this.gridYToPixel(0) + (2.5 * this.verticalGridSize);
 
         return { x: positionX, y: positionY, w: width, h: height };
     }

@@ -123,10 +123,15 @@ export default class WarehouseRenderer {
             for (let c = 0; c < model.numColumns; c++) {
 
                 let gridX = c * WarehouseModel.SHELF_TOTAL_WIDTH + WarehouseModel.AISLE_GRID_WIDTH;
-                let gridY = r * WarehouseModel.SHELF_TOTAL_HEIGHT + WarehouseModel.AISLE_GRID_HEIGHT;
+                // Gezeichnet wird von oben nach unten, das Gitter zaehlt aber
+                // vom Depot weg nach oben. Ankerzeile ist deshalb die oberste
+                // Regalzeile dieses Blocks, nicht die unterste.
+                let gridYTop = r * WarehouseModel.SHELF_TOTAL_HEIGHT
+                    + WarehouseModel.AISLE_GRID_HEIGHT
+                    + (WarehouseModel.SHELF_GRID_HEIGHT - 1);
 
                 let pixelX = translator.offsetX + (gridX * cellW);
-                let pixelY = translator.offsetY + (gridY * cellH);
+                let pixelY = translator.gridYToPixel(gridYTop);
 
                 // Shadow
                 ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
