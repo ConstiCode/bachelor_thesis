@@ -18,6 +18,10 @@ COPY . .
 
 EXPOSE 5000
 
+# Der Entrypoint erklaert bei jedem Start, wie es weitergeht, und fuehrt
+# danach den uebergebenen Befehl aus (Standard: die Webanwendung).
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+
 # --host 0.0.0.0 nötig, damit der Port aus dem Container heraus erreichbar ist
 CMD ["flask", "--app", "app", "run", "--host", "0.0.0.0", "--port", "5000"]
 
